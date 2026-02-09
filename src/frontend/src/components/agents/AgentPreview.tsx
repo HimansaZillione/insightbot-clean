@@ -508,40 +508,21 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
         setIsSettingsPanelOpen(true);
       },
     },
+    
     {
-      key: "terms",
+      key: "Need Help?",
       children: (
         <a
           className={styles.externalLink}
-          href="https://aka.ms/aistudio/terms"
+          href="https://zillione-prod.powerappsportals.com/"
           target="_blank"
           rel="noopener noreferrer"
         >
-          Terms of Use
+          Need Help?
         </a>
       ),
     },
-    {
-      key: "privacy",
-      children: (
-        <a
-          className={styles.externalLink}
-          href="https://go.microsoft.com/fwlink/?linkid=521839"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Privacy
-        </a>
-      ),
-    },
-    {
-      key: "feedback",
-      children: "Send Feedback",
-      onClick: () => {
-        // Handle send feedback click
-        alert("Thank you for your feedback!");
-      },
-    },
+    
   ];
   const chatContext = useMemo(
     () => ({
