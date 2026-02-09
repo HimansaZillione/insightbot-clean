@@ -1,0 +1,16 @@
+fastapi==0.122.0
+uvicorn[standard]==0.30.0
+gunicorn==23.0.0
+azure-identity==1.19.0
+aiohttp==3.13.2
+openai
+azure_ai_projects==2.0.0b2
+azure-core==1.36.0  # other versions might not compatible
+azure-core-tracing-opentelemetry==1.0.0b12
+azure-monitor-opentelemetry-exporter==1.0.0b44
+azure-monitor-opentelemetry==1.8.1 # version such as 1.6.11 isn't compatible
+azure-search-documents
+urllib3==2.3.0
+setuptools==80.9.0
+starlette== 0.49.1
+jinja2 # new dependent of fastapi
