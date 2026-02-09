@@ -1,18 +1,14 @@
 import { Button, Spinner } from "@fluentui/react-components";
 import { bundleIcon, DeleteFilled, DeleteRegular } from "@fluentui/react-icons";
 import { CopilotMessageV2 as CopilotMessage } from "@fluentui-copilot/react-copilot-chat";
-import {
-  ReferenceListV2 as ReferenceList,
-  ReferenceOverflowButton,
-} from "@fluentui-copilot/react-reference";
 import { Suspense } from "react";
 
-import { Markdown } from "../core/Markdown";
+import { Markdown } from "../core/Markdown";   // assuming this is your markdown renderer
 import { UsageInfo } from "./UsageInfo";
+import { AgentIcon } from "./AgentIcon";
 import { IAssistantMessageProps } from "./chatbot/types";
 
 import styles from "./AgentPreviewChatBot.module.css";
-import { AgentIcon } from "./AgentIcon";
 
 const DeleteIcon = bundleIcon(DeleteFilled, DeleteRegular);
 
@@ -24,15 +20,19 @@ export function AssistantMessage({
   showUsageInfo,
   onDelete,
 }: IAssistantMessageProps): React.JSX.Element {
-  const hasAnnotations = message.annotations && message.annotations.length > 0;
-  const references = hasAnnotations
-    ? message.annotations?.map((annotation, index) => (
-        <div key={index} className="reference-item">
-          {annotation.text || annotation.file_name}
-        </div>
-      ))
-    : [];
+  // Clean inline citation markers
+  const cleanContent = message.content.replace(/【[^】]+†source】/g, "");
 
+  // Prepare sources - using 'label' as the display name
+  const annotations = Array.isArray(message.annotations) ? message.annotations : [];
+
+  // Optional: deduplicate by label (like you did with new Set)
+  const uniqueSources = Array.from(
+    new Map(annotations.map(a => [a.label, a])).values()
+  );
+  console.log("DEBUG - message.annotations:", message.annotations);
+  console.log("DEBUG - annotations length:", annotations.length);
+  console.log("DEBUG - uniqueSources:", uniqueSources);
   return (
     <CopilotMessage
       id={"msg-" + message.id}
@@ -55,22 +55,23 @@ export function AssistantMessage({
       disclaimer={<span>AI-generated content may be incorrect</span>}
       footnote={
         <>
-          {hasAnnotations && (
-            <ReferenceList
-              maxVisibleReferences={3}
-              minVisibleReferences={2}
-              showLessButton={
-                <ReferenceOverflowButton>Show Less</ReferenceOverflowButton>
-              }
-              showMoreButton={
-                <ReferenceOverflowButton
-                  text={(overflowCount) => `+${overflowCount.toString()}`}
-                />
-              }
-            >
-              {references}
-            </ReferenceList>
+          {/* Custom sources section - similar to your previous project */}
+          {uniqueSources.length > 0 && (
+            <div className={styles.citationsContainer}>
+              <div className={styles.citationsHeader}>Sources:</div>
+              <div className={styles.citationsList}>
+                {uniqueSources.map((annotation, i) => (
+                  <div key={i} className={styles.citationItem}>
+                    <span className={styles.citationNumber}>[{i + 1}]</span>
+                    <span className={styles.citationTitle}>
+                      {annotation.label || "Document"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
+
           {showUsageInfo && message.usageInfo && (
             <UsageInfo info={message.usageInfo} duration={message.duration} />
           )}
@@ -80,7 +81,7 @@ export function AssistantMessage({
       name={agentName ?? "Bot"}
     >
       <Suspense fallback={<Spinner size="small" />}>
-        <Markdown content={message.content} />
+        <Markdown content={cleanContent} />
       </Suspense>
     </CopilotMessage>
   );

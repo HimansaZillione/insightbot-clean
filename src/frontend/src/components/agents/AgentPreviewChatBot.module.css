@@ -139,3 +139,36 @@
     opacity 0.3s ease-in-out,
     transform 0.3s ease-in-out;
 }
+
+.citationsContainer {
+  margin-top: 16px;
+  font-size: 14px;
+  color: #d1d5db; /* light gray for dark theme */
+}
+
+.citationsHeader {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.citationsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.citationItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.citationNumber {
+  font-weight: bold;
+  color: #9ca3af;
+  min-width: 24px;
+}
+
+.citationTitle {
+  color: #010a15; /* blue link-like color */
+}

@@ -339,55 +339,83 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
               }
 
               if (data.type === "completed_message") {
-                // Each completed_message should get its own balloon
-                if (hasReceivedCompletedMessage) {
-                  // We've already processed a completed message, so create a new balloon for this one
-                  chatItem = createAssistantMessageDiv();
-                  console.log(
-                    "[ChatClient] Created new messageDiv for additional completed message."
-                  );
-                  
-                  // Reset for the new message
-                  accumulatedContent = data.content;
-                  annotations = data.annotations || [];
-                } else {
-                  // First completed message in this stream
-                  clearAssistantMessage(chatItem);
-                  accumulatedContent = data.content;
-                  annotations = data.annotations || [];
-                  hasReceivedCompletedMessage = true;
-                }
-                
-                console.log(
-                  "[ChatClient] Received completed message:",
-                  accumulatedContent
-                );
-                
-                isStreaming = false;
-                setIsResponding(false);
-              } else {
-                // Handle streaming content
-                if (hasReceivedCompletedMessage) {
-                  // We've had a completed message before, so this is new streaming content
-                  // Create a new balloon for the new streaming content
-                  chatItem = createAssistantMessageDiv();
-                  console.log(
-                    "[ChatClient] Created new messageDiv for streaming after completed message."
-                  );
-                  
-                  // Reset for new streaming content
-                  annotations = [];
-                  accumulatedContent = "";
-                  hasReceivedCompletedMessage = false; // Reset for this new cycle
-                }
-                accumulatedContent += data.content;
-                isStreaming = true;
-                
-                console.log(
-                  "[ChatClient] Received streaming chunk:",
-                  data.content
-                );
-              }
+                    // Each completed_message should get its own balloon
+                    if (hasReceivedCompletedMessage) {
+                      // We've already processed a completed message, so create a new balloon for this one
+                      chatItem = createAssistantMessageDiv();
+                      console.log(
+                        "[ChatClient] Created new messageDiv for additional completed message."
+                      );
+                      
+                      // Reset for the new message
+                      accumulatedContent = data.content;
+                      annotations = data.annotations || [];
+                    } else {
+                      // First completed message in this stream
+                      clearAssistantMessage(chatItem);
+                      accumulatedContent = data.content;
+                      annotations = data.annotations || [];
+                      hasReceivedCompletedMessage = true;
+                    }
+
+                    // ────────────────────────────────────────────────────────────────
+                    // IMPORTANT: Save annotations to the current chatItem
+                    if (chatItem) {
+                      chatItem.annotations = annotations;
+                      console.log(
+                        "[ChatClient] Saved annotations to chatItem:",
+                        chatItem.annotations
+                      );
+                    }
+                    // ────────────────────────────────────────────────────────────────
+
+                    console.log(
+                      "[ChatClient] Received completed message:",
+                      accumulatedContent
+                    );
+
+                    isStreaming = false;
+                    setIsResponding(false);
+
+                    // Re-append with the final content + annotations
+                    appendAssistantMessage(
+                      chatItem,
+                      accumulatedContent,
+                      isStreaming,
+                      annotations
+                    );
+                  } else {
+                    // Handle streaming content
+                    if (hasReceivedCompletedMessage) {
+                      // We've had a completed message before, so this is new streaming content
+                      // Create a new balloon for the new streaming content
+                      chatItem = createAssistantMessageDiv();
+                      console.log(
+                        "[ChatClient] Created new messageDiv for streaming after completed message."
+                      );
+                      
+                      // Reset for new streaming content
+                      annotations = [];
+                      accumulatedContent = "";
+                      hasReceivedCompletedMessage = false; // Reset for this new cycle
+                    }
+
+                    accumulatedContent += data.content;
+                    isStreaming = true;
+
+                    console.log(
+                      "[ChatClient] Received streaming chunk:",
+                      data.content
+                    );
+
+                    // During streaming, update the UI (but annotations are only final in completed_message)
+                    appendAssistantMessage(
+                      chatItem,
+                      accumulatedContent,
+                      isStreaming,
+                      annotations
+                    );
+                  }
 
               // Update the UI with the accumulated content
               appendAssistantMessage(
@@ -421,43 +449,51 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
     return item;
   };
   const appendAssistantMessage = (
-    chatItem: IChatItem,
-    accumulatedContent: string,
-    isStreaming: boolean,
-    annotations?: IAnnotation[]
-  ) => {
-    try {
-      // Preprocess content to convert citations to links using the updated annotation data
-      // Convert the accumulated content to HTML using markdown-it
-      const preprocessedContent = preprocessContent(
-        accumulatedContent,
-        annotations
-      ); 
-      let htmlContent = preprocessedContent;
-      if (!chatItem) {
-        throw new Error("Message content div not found in the template.");
-      }
+  chatItem: IChatItem,
+  accumulatedContent: string,
+  isStreaming: boolean,
+  annotations?: IAnnotation[]
+) => {
+      try {
+        // Preprocess content to convert citations to links using the updated annotation data
+        const preprocessedContent = preprocessContent(accumulatedContent, annotations);
+        let htmlContent = preprocessedContent;
 
-      // Set the innerHTML of the message text div to the HTML content
-      chatItem.content = htmlContent;
-      setMessageList((prev) => {
-        return [...prev.slice(0, -1), { ...chatItem }];
-      });
+        if (!chatItem) {
+          throw new Error("Message content div not found in the template.");
+        }
 
-      // Use requestAnimationFrame to ensure the DOM has updated before scrolling
-      // Only scroll if stop streaming
-      if (!isStreaming) {
-        requestAnimationFrame(() => {
-          const lastChild = document.getElementById(`msg-${chatItem.id}`);
-          if (lastChild) {
-            lastChild.scrollIntoView({ behavior: "smooth", block: "end" });
-          }
+        // ────────────────────────────────────────────────────────────────
+        // Save both the processed content and the original annotations
+        chatItem.content = htmlContent;
+        chatItem.annotations = annotations || [];   // ← This is the key addition!
+        // ────────────────────────────────────────────────────────────────
+
+        // Optional: log to confirm annotations are saved
+        console.log(
+          "[appendAssistantMessage] Saved annotations to chatItem:",
+          chatItem.annotations
+        );
+
+        // Update the message list with the modified chatItem
+        setMessageList((prev) => {
+          return [...prev.slice(0, -1), { ...chatItem }];
         });
+
+        // Use requestAnimationFrame to ensure the DOM has updated before scrolling
+        // Only scroll if streaming has stopped
+        if (!isStreaming) {
+          requestAnimationFrame(() => {
+            const lastChild = document.getElementById(`msg-${chatItem.id}`);
+            if (lastChild) {
+              lastChild.scrollIntoView({ behavior: "smooth", block: "end" });
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error in appendAssistantMessage:", error);
       }
-    } catch (error) {
-      console.error("Error in appendAssistantMessage:", error);
-    }
-  };
+    };
 
   const clearAssistantMessage = (chatItem: IChatItem) => {
     if (chatItem) {
