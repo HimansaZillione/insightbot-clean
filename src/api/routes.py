@@ -4,6 +4,7 @@
 import asyncio
 import json
 import os
+import base64
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Mapping, Optional, Dict
 
@@ -57,6 +58,8 @@ security = HTTPBasic()
 username = os.getenv("WEB_APP_USERNAME")
 password = os.getenv("WEB_APP_PASSWORD")
 basic_auth = username and password
+
+
 
 def authenticate(credentials: Optional[HTTPBasicCredentials] = Depends(security)) -> None:
 
@@ -137,32 +140,125 @@ async def get_or_create_conversation(
     
     return conversation
 
-async def get_message_and_annotations(event: Message | ResponseOutputMessage) -> Dict:
-    annotations = []
-    # Get file annotations for the file search.
+async def get_file_as_base64(openai_client: AsyncOpenAI, file_id: str) -> Optional[str]:
+    """FIXED: Proper async streaming."""
+    try:
+        logger.info(f"📥 File: {file_id}")
+        file_content = await openai_client.files.content(file_id)
+        file_bytes = b''.join([chunk async for chunk in file_content])  # ASYNC!
+        base64_encoded = base64.b64encode(file_bytes).decode('utf-8')
+        logger.info(f"✅ Base64: {len(file_bytes)/1024:.1f}KB")
+        return base64_encoded
+    except Exception as e:
+        logger.error(f"❌ File failed: {e}")
+        return None
+
+
+
+import re
+import asyncio
+
+import re
+import base64
+from typing import Dict, Any
+import logging
+
+logger = logging.getLogger("azureaiapp")
+
+async def get_message_and_annotations(
+    message: Any,  # Message | ResponseOutputMessage
+    openai_client: AsyncOpenAI
+) -> Dict[str, Any]:
+    """
+    Extract text, annotations and base64 images from file citations.
+    Handles container_file_citation (code interpreter plots) and file_citation.
+    """
     text = ""
-    content = event.content[0]
-    if content.type == "output_text" or content.type == "input_text":
-        text = content.text
-    if content.type == "output_text":
-        for annotation in content.annotations:
-            if annotation.type == "file_citation":
-                ann = {
-                    'label': annotation.filename,
-                    "index": annotation.index
-                }
-                annotations.append(ann)
-            elif annotation.type == "url_citation":
-                ann = {
-                    'label': annotation.title,
-                    "index": annotation.start_index
-                }
-                annotations.append(ann)
-            
-    return {
-        'content': text,
-        'annotations': annotations
+    annotations = []
+    images = []
+
+    if not message.content or len(message.content) == 0:
+        return {"content": "", "annotations": [], "images": []}
+
+    content_block = message.content[0]
+
+    if hasattr(content_block, "type") and content_block.type in ("output_text", "input_text"):
+        text = content_block.text or ""
+        logger.info(f"Text length: {len(text)} – starts: {text[:100]}...")
+
+        # ───────────────────────────────
+        # Handle annotations
+        # ───────────────────────────────
+        if hasattr(content_block, "annotations") and content_block.annotations:
+            for ann in content_block.annotations:
+                ann_type = getattr(ann, "type", None)
+
+                if ann_type in ("file_citation", "container_file_citation"):
+                    file_id   = getattr(ann, "file_id",   None)
+                    filename  = getattr(ann, "filename",  f"generated-{file_id[-8:]}.png") if file_id else "unknown.png"
+                    container = getattr(ann, "container_id", None)
+
+                    annotations.append({
+                        "type": ann_type,
+                        "file_id": file_id,
+                        "filename": filename,
+                        "container_id": container,
+                    })
+
+                    # Download image if we have file_id
+                    if file_id:
+                        try:
+                            logger.info(f"Downloading {ann_type} → file_id={file_id} ({filename})")
+                            file_resp = await openai_client.files.content(file_id)
+                            image_bytes = b"".join([chunk async for chunk in file_resp])
+
+                            if len(image_bytes) == 0:
+                                logger.warning(f"Empty file content: {file_id}")
+                                continue
+
+                            b64 = base64.b64encode(image_bytes).decode("utf-8")
+                            images.append({
+                                "file_id": file_id,
+                                "filename": filename,
+                                "container_id": container,
+                                "data": b64,
+                                "mime_type": "image/png",
+                                "size_kb": round(len(image_bytes) / 1024, 1)
+                            })
+                            logger.info(f"Image extracted successfully: {len(image_bytes)/1024:.1f} KB")
+
+                        except Exception as e:
+                            logger.error(f"Failed to download {file_id}: {e}", exc_info=True)
+                            images.append({
+                                "file_id": file_id,
+                                "filename": filename,
+                                "data": None,
+                                "status": "download_failed",
+                                "error": str(e)
+                            })
+
+                elif ann_type == "url_citation":
+                    annotations.append({
+                        "type": "url_citation",
+                        "title": getattr(ann, "title", ""),
+                        "start_index": getattr(ann, "start_index", None),
+                        "end_index": getattr(ann, "end_index", None),
+                    })
+
+        # Optional fallback regex (keep it, but it's usually not needed with container_file_citation)
+        sandbox_matches = re.findall(r'\(sandbox:/mnt/data/([a-zA-Z0-9_ -]+\.(png|jpg|jpeg))\)', text)
+        if sandbox_matches and not images:  # only if no real citations found
+            logger.warning("Found sandbox path but no file_id – this usually doesn't work")
+            # You can't reliably download from filename alone
+
+    result = {
+        "content": text.strip(),
+        "annotations": annotations,
+        "images": images,
     }
+
+    logger.info(f"Extracted → {len(annotations)} citations, {len(images)} images")
+    return result
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -201,15 +297,21 @@ async def save_user_message_created_at(openai_client: AsyncOpenAI, conversation:
 async def get_result(
     agent: AgentVersionObject,
     conversation: Conversation,
-    user_message: str, 
+    user_message: str,
     project_client: AIProjectClient,
     carrier: Dict[str, str]
 ) -> AsyncGenerator[str, None]:
+    """
+    Main streaming endpoint logic: calls the agent, streams deltas,
+    detects code interpreter images early (when possible), converts to base64,
+    and sends everything to the frontend via SSE.
+    """
     ctx = TraceContextTextMapPropagator().extract(carrier=carrier)
     with tracer.start_as_current_span('get_result', context=ctx):
         async with project_client.get_openai_client() as openai_client:
             logger.info(f"get_result invoked for conversation={conversation.id}")
             input_created_at = datetime.now(timezone.utc).timestamp()
+
             try:
                 response = await openai_client.responses.create(
                     conversation=conversation.id,
@@ -217,33 +319,135 @@ async def get_result(
                     extra_body={"agent": AgentReference(name=agent.name, version=agent.version).as_dict()},
                     stream=True
                 )
-                logger.info("Successfully created stream; starting to process events")
+
+                logger.info("🚀 Stream created - watching for images...")
+
                 async for event in response:
+                    # Response created
                     if event.type == "response.created":
-                        logger.info(f"Stream response created with ID: {event.response.id}")
+                        logger.info(f"📱 Response created: {event.response.id}")
+
+                    # Text deltas (live typing)
                     elif event.type == "response.output_text.delta":
-                        logger.info(f"Delta: {event.delta}")
-                        stream_data = {'content': event.delta, 'type': "message"}
-                        yield serialize_sse_event(stream_data)
-                    elif event.type == "response.output_item.done" and event.item.type == "message":
-                        stream_data = await get_message_and_annotations(event.item)
-                        stream_data['type'] = "completed_message"
-                        yield serialize_sse_event(stream_data)
+                        if event.delta:
+                            yield serialize_sse_event({
+                                'content': event.delta,
+                                'type': "message_delta"
+                            })
+
+                    # Log any code interpreter related event
+                    elif "code_interpreter" in str(event).lower():
+                        logger.info(f"🔍 CODE INTERPRETER EVENT: {event}")
+
+                    # ────────────────────────────────────────────────
+                    # DEBUG BLOCK: Log every "output_item.done" event
+                    # This catches both code interpreter completion and final message
+                    # ────────────────────────────────────────────────
+                    elif event.type == "response.output_item.done":
+                        logger.info(
+                            f"Output item done - item type: {getattr(event.item, 'type', 'NO_TYPE')}"
+                        )
+                        if hasattr(event.item, "outputs"):
+                            logger.info(f"Outputs present: {len(event.item.outputs)} items")
+                            for idx, out in enumerate(event.item.outputs):
+                                out_str = out.__dict__ if hasattr(out, '__dict__') else str(out)
+                                logger.info(f"Output {idx}: {out_str}")
+                        else:
+                            logger.info("No 'outputs' attribute on this item")
+
+                    # ────────────────────────────────────────────────
+                    # Early image download attempt (for code interpreter)
+                    # ────────────────────────────────────────────────
+                    elif (
+                        event.type == "response.output_item.done"
+                        and hasattr(event.item, "type")
+                        and event.item.type == "code_interpreter_call"
+                    ):
+                        logger.info("🔧 Code interpreter call completed → checking for image output")
+
+                        if hasattr(event.item, "outputs") and event.item.outputs:
+                            for output in event.item.outputs:
+                                file_id = getattr(output, "file_id", None)
+                                if file_id:
+                                    try:
+                                        logger.info(f"Early download attempt for file_id={file_id}")
+                                        file_resp = await openai_client.files.content(file_id)
+                                        image_bytes = b"".join([chunk async for chunk in file_resp])
+
+                                        if not image_bytes:
+                                            logger.warning(f"Empty content for file_id={file_id}")
+                                            continue
+
+                                        b64 = base64.b64encode(image_bytes).decode("utf-8")
+                                        logger.info(f"Early image success: {len(image_bytes)/1024:.1f} KB")
+
+                                        yield serialize_sse_event({
+                                            "type": "image_early",
+                                            "file_id": file_id,
+                                            "data": b64,
+                                            "mime_type": "image/png",
+                                            "size_kb": round(len(image_bytes) / 1024, 1)
+                                        })
+
+                                    except openai.NotFoundError:
+                                        logger.warning(f"File {file_id} already gone (404) during early attempt")
+                                    except Exception as e:
+                                        logger.error(f"Early download failed {file_id}: {e}", exc_info=True)
+                                        yield serialize_sse_event({
+                                            "type": "image_error",
+                                            "file_id": file_id,
+                                            "error": str(e)
+                                        })
+
+                    # Final assistant message → text + fallback image extraction
+                    elif (
+                        event.type == "response.output_item.done"
+                        and hasattr(event.item, "type")
+                        and event.item.type == "message"
+                    ):
+                        logger.info("📄 Final message processing...")
+
+                        try:
+                            stream_data = await get_message_and_annotations(event.item, openai_client)
+
+                            stream_data["type"] = "completed_message"
+                            stream_data["role"] = "assistant"
+
+                            if hasattr(event.item, "id"):
+                                stream_data["message_id"] = event.item.id
+
+                            img_count = len(stream_data.get("images", []))
+                            logger.info(
+                                f"Sending completed_message | "
+                                f"text len={len(stream_data['content'])}, "
+                                f"images={img_count}"
+                            )
+
+                            yield serialize_sse_event(stream_data)
+
+                        except Exception as e:
+                            logger.error(f"Error processing final message: {e}", exc_info=True)
+                            yield serialize_sse_event({
+                                "type": "error",
+                                "content": "Error processing assistant response",
+                                "error": str(e)
+                            })
+
+                    # Response fully completed
                     elif event.type == "response.completed":
-                        logger.info(f"Response completed with full message: {event.response.output_text}")
-                                                        
+                        logger.info("🏁 Response complete")
+
             except Exception as e:
-                logger.exception(f"Exception in get_result: {e}")
-                error_data = {
-                    'content': str(e),
-                    'annotations': [],
-                    'type': "completed_message"
-                }
-                yield serialize_sse_event(error_data)
+                logger.exception(f"❌ Stream error: {e}")
+                yield serialize_sse_event({
+                    "type": "error",
+                    "content": "Sorry, there was an error processing your request.",
+                    "error": str(e)
+                })
+
             finally:
-                stream_data = {'type': "stream_end"}
                 await save_user_message_created_at(openai_client, conversation, input_created_at)
-                yield serialize_sse_event(stream_data)           
+                yield serialize_sse_event({"type": "stream_end"})          
 
 
 
@@ -270,7 +474,8 @@ async def history(
                 items = await openai_client.conversations.items.list(conversation_id=conversation.id, order="desc", limit=16)
                 async for item in items:
                     if item.type == "message":
-                        formatteded_message = await get_message_and_annotations(item)
+                        # Include openai_client to handle images in history
+                        formatteded_message = await get_message_and_annotations(item, openai_client)
                         formatteded_message['role'] = item.role
                         formatteded_message['created_at'] = conversation.metadata.get(get_created_at_label(item.id), "")
                         content.append(formatteded_message)
@@ -293,10 +498,32 @@ async def get_chat_agent(
 ):
     wsid = os.environ.get("AZURE_EXISTING_AIPROJECT_RESOURCE_ID")
     agent_id = os.environ.get("AZURE_EXISTING_AGENT_ID")
-    agent_name = agent_id.split(":")[0]
-    agent_version = agent_id.split(":")[1]
-    agent_playground_url = f"https://ai.azure.com/nextgen/r/{encode_project_resource_id(wsid)}/build/agents/{quote(agent_name)}/build?version={agent_version}"
-    return JSONResponse(content={"name": agent.name, "metadata": agent.metadata, "agentPlaygroundUrl": agent_playground_url})
+    
+    # Add error handling for missing wsid
+    if not wsid or not agent_id:
+        return JSONResponse(content={
+            "name": agent.name, 
+            "metadata": agent.metadata,
+            "agentPlaygroundUrl": None
+        })
+    
+    try:
+        agent_name = agent_id.split(":")[0]
+        agent_version = agent_id.split(":")[1]
+        agent_playground_url = f"https://ai.azure.com/nextgen/r/{encode_project_resource_id(wsid)}/build/agents/{quote(agent_name)}/build?version={agent_version}"
+        return JSONResponse(content={
+            "name": agent.name, 
+            "metadata": agent.metadata, 
+            "agentPlaygroundUrl": agent_playground_url
+        })
+    except Exception as e:
+        logger.error(f"Error generating agent playground URL: {e}")
+        return JSONResponse(content={
+            "name": agent.name, 
+            "metadata": agent.metadata,
+            "agentPlaygroundUrl": None
+        })
+
 
 
 @router.post("/chat")

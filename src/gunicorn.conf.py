@@ -8,6 +8,9 @@ import multiprocessing
 import os
 import tempfile
 
+
+
+
 from azure.ai.projects.aio import AIProjectClient
 from azure.ai.projects.models import ConnectionType, ApiKeyCredentials, AgentVersionObject
 from azure.identity.aio import DefaultAzureCredential
@@ -15,6 +18,7 @@ from azure.core.credentials_async import AsyncTokenCredential
 from azure.ai.projects.models import PromptAgentDefinition
 from azure.ai.projects.models import FileSearchTool, AzureAISearchAgentTool, Tool, AgentVersionObject, AzureAISearchToolResource, AISearchIndexResource
 from azure.storage.blob.aio import BlobServiceClient
+
 
 from azure.ai.projects.models import (
     PromptAgentDefinition,
@@ -24,6 +28,7 @@ from azure.ai.projects.models import (
     EvaluationRuleEventType,
     EvaluationRuleActionType
 )
+from azure.ai.projects.models import CodeInterpreterTool
 
 
 from openai import AsyncOpenAI
@@ -384,27 +389,54 @@ async def get_available_tool(
 
 
 async def create_agent(ai_project: AIProjectClient,
-                       openai_client: AsyncOpenAI,
-                       creds: AsyncTokenCredential) -> AgentVersionObject:
-    logger.info("Creating new agent with resources")
-    tool = await get_available_tool(ai_project, openai_client, creds)
-
-    instructions = "You are a helpful assistant."
-    tools: List[Tool] = []
-
-    if tool:
-        tools = [tool]
-        if isinstance(tool, AzureAISearchAgentTool):
-            instructions = (
-                "Use AI Search always. "
-                "You must always provide citations for answers using the tool and render them as: `\u3010message_idx:search_idx\u2020source\u3011`. "
-                "Avoid to use base knowledge."
-            )
-        else:
-            instructions = "Use File Search always with citations. Avoid to use base knowledge."
+                      openai_client: AsyncOpenAI,
+                      creds: AsyncTokenCredential) -> AgentVersionObject:
+    logger.info("Creating agent with code interpreter + search")
+    
+    # 1. UPLOAD using openai_client.files (with TIMEOUT)
+    code_file_path = os.path.join(os.path.dirname(__file__), "Code_inter.py")
+    if os.path.exists(code_file_path):
+        try:
+            with open(code_file_path, "rb") as file_data:
+                uploaded_file = await openai_client.files.create(
+                    file=file_data, 
+                    purpose="assistants"
+                )
+            logger.info(f"Uploaded Code_inter.py, file ID: {uploaded_file.id}")
+            
+            # TIMEOUT after 30 seconds
+            timeout_start = asyncio.get_event_loop().time()
+            while asyncio.get_event_loop().time() - timeout_start < 30:
+                file_status = await openai_client.files.retrieve(uploaded_file.id)
+                if file_status.status == 'completed':
+                    logger.info("File processing completed")
+                    code_interpreter = CodeInterpreterTool(file_ids=[uploaded_file.id])
+                    break
+                await asyncio.sleep(1)
+            else:
+                logger.warning("File processing timeout - using without file")
+                code_interpreter = CodeInterpreterTool()
+                
+        except Exception as e:
+            logger.warning(f"File upload failed: {e}, using code interpreter without file")
+            code_interpreter = CodeInterpreterTool()
     else:
-        logger.warning("No search tool available. Creating agent without search tool.")
-
+        logger.warning("Code_inter.py not found")
+        code_interpreter = CodeInterpreterTool()
+    ##################################################
+    
+    # Get your existing search tool (REST OF YOUR CODE)
+    tool = await get_available_tool(ai_project, openai_client, creds)
+    
+    # Combine tools
+    tools: List[Tool] = [code_interpreter]
+    if tool:
+        tools.append(tool)
+        instructions = "Use code interpreter for data/math/charts. Use search for facts."
+    else:
+        instructions = "Use code interpreter for analysis."
+    
+    # Create agent
     agent = await ai_project.agents.create_version(
         agent_name=os.environ["AZURE_AI_AGENT_NAME"],
         definition=PromptAgentDefinition(
@@ -413,7 +445,11 @@ async def create_agent(ai_project: AIProjectClient,
             tools=tools,
         ),
     )
+    logger.info(f"Agent created: {agent.id}")
     return agent
+
+
+
 
 
 async def initialize_eval(project_client: AIProjectClient, openai_client: AsyncOpenAI, agent_obj: AgentVersionObject, credential: AsyncTokenCredential):
