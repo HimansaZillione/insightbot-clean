@@ -232,7 +232,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
         credentials: "include",
       });
 
-      console.log("[ChatClient] Response status:", response.status, response.statusText);
+      //console.log("[ChatClient] Response status:", response.status, response.statusText);
 
       if (!response.ok) {
         console.error("[ChatClient] Response not OK:", response.status, response.statusText);
@@ -243,7 +243,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
         throw new Error("ReadableStream not supported or response.body is null");
       }
 
-      console.log("[ChatClient] Starting to handle streaming response...");
+      //console.log("[ChatClient] Starting to handle streaming response...");
       handleMessages(response.body);
     } catch (error: any) {
       setIsResponding(false);
@@ -308,7 +308,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
             } else {
               if (!chatItem) {
                 chatItem = createAssistantMessageDiv();
-                console.log("[ChatClient] Created new messageDiv for assistant.");
+                //console.log("[ChatClient] Created new messageDiv for assistant.");
               }
 
               if (data.type === "completed_message") {
@@ -317,7 +317,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
                 // ═══════════════════════════════════════════════════════════
                 if (hasReceivedCompletedMessage) {
                   chatItem = createAssistantMessageDiv();
-                  console.log("[ChatClient] Created new messageDiv for additional completed message.");
+                  //console.log("[ChatClient] Created new messageDiv for additional completed message.");
                   
                   accumulatedContent = data.content;
                   annotations = data.annotations || [];
@@ -335,16 +335,16 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
                   chatItem.annotations = annotations;
                   chatItem.images = data.images || []; // ← THIS IS CRITICAL
                   
-                  console.log("[ChatClient] Saved to chatItem:");
-                  console.log("  - annotations:", chatItem.annotations?.length);
-                  console.log("  - images:", chatItem.images?.length);
+                  // console.log("[ChatClient] Saved to chatItem:");
+                  // console.log("  - annotations:", chatItem.annotations?.length);
+                  // console.log("  - images:", chatItem.images?.length);
                   if (chatItem.images && chatItem.images.length > 0) {
-                    console.log("  - First image file_id:", chatItem.images[0].file_id);
-                    console.log("  - Image data length:", chatItem.images[0].data?.length);
+                    // console.log("  - First image file_id:", chatItem.images[0].file_id);
+                    // console.log("  - Image data length:", chatItem.images[0].data?.length);
                   }
                 }
 
-                console.log("[ChatClient] Received completed message:", accumulatedContent);
+                //console.log("[ChatClient] Received completed message:", accumulatedContent);
 
                 isStreaming = false;
                 setIsResponding(false);
@@ -361,7 +361,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
                 // Streaming content
                 if (hasReceivedCompletedMessage) {
                   chatItem = createAssistantMessageDiv();
-                  console.log("[ChatClient] Created new messageDiv for streaming after completed message.");
+                  //console.log("[ChatClient] Created new messageDiv for streaming after completed message.");
                   
                   annotations = [];
                   accumulatedContent = "";
@@ -371,7 +371,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
                 accumulatedContent += data.content;
                 isStreaming = true;
 
-                console.log("[ChatClient] Received streaming chunk:", data.content);
+                //console.log("[ChatClient] Received streaming chunk:", data.content);
 
                 appendAssistantMessage(
                   chatItem,
@@ -427,10 +427,10 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
       chatItem.annotations = annotations || [];
       chatItem.images = images || []; // ← THIS IS CRITICAL
 
-      console.log("[appendAssistantMessage] Saved to chatItem:");
-      console.log("  - content length:", chatItem.content.length);
-      console.log("  - annotations:", chatItem.annotations?.length);
-      console.log("  - images:", chatItem.images?.length);
+      // console.log("[appendAssistantMessage] Saved to chatItem:");
+      // console.log("  - content length:", chatItem.content.length);
+      // console.log("  - annotations:", chatItem.annotations?.length);
+      // console.log("  - images:", chatItem.images?.length);
 
       // Update the message list
       setMessageList((prev) => {
