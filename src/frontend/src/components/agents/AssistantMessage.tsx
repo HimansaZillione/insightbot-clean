@@ -34,11 +34,11 @@ export function AssistantMessage({
   // Get images from message
   const images = Array.isArray(message.images) ? message.images : [];
 
-  console.log("DEBUG - message.annotations:", message.annotations);
-  console.log("DEBUG - annotations length:", annotations.length);
-  console.log("DEBUG - uniqueSources:", uniqueSources);
-  console.log("DEBUG - message.images:", message.images);
-  console.log("DEBUG - images length:", images.length);
+  // console.log("DEBUG - message.annotations:", message.annotations);
+  // console.log("DEBUG - annotations length:", annotations.length);
+  // console.log("DEBUG - uniqueSources:", uniqueSources);
+  // console.log("DEBUG - message.images:", message.images);
+  // console.log("DEBUG - images length:", images.length);
 
   return (
     <CopilotMessage
