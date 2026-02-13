@@ -25,12 +25,25 @@ export interface IFileEntity {
   isRemote?: boolean;
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// NEW: Code Interpreter Generated Image Interface
+// ═══════════════════════════════════════════════════════════════════════
+export interface IGeneratedImage {
+  file_id: string;
+  container_id?: string;
+  filename: string;
+  data: string; // base64 encoded image data
+  mime_type: string; // e.g., "image/png"
+  size_kb?: number;
+}
+
 export interface IChatItem {
   id: string;
   role?: string;
   content: string;
   isAnswer?: boolean;
   annotations?: any[];
+  images?: IGeneratedImage[]; // ← NEW: Code Interpreter images
   fileReferences?: Map<string, any>;
   duration?: number;
   message_files?: IFileEntity[];

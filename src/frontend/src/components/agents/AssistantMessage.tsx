@@ -3,7 +3,7 @@ import { bundleIcon, DeleteFilled, DeleteRegular } from "@fluentui/react-icons";
 import { CopilotMessageV2 as CopilotMessage } from "@fluentui-copilot/react-copilot-chat";
 import { Suspense } from "react";
 
-import { Markdown } from "../core/Markdown";   // assuming this is your markdown renderer
+import { Markdown } from "../core/Markdown";
 import { UsageInfo } from "./UsageInfo";
 import { AgentIcon } from "./AgentIcon";
 import { IAssistantMessageProps } from "./chatbot/types";
@@ -30,9 +30,16 @@ export function AssistantMessage({
   const uniqueSources = Array.from(
     new Map(annotations.map(a => [a.label, a])).values()
   );
+
+  // Get images from message
+  const images = Array.isArray(message.images) ? message.images : [];
+
   console.log("DEBUG - message.annotations:", message.annotations);
   console.log("DEBUG - annotations length:", annotations.length);
   console.log("DEBUG - uniqueSources:", uniqueSources);
+  console.log("DEBUG - message.images:", message.images);
+  console.log("DEBUG - images length:", images.length);
+
   return (
     <CopilotMessage
       id={"msg-" + message.id}
@@ -55,7 +62,7 @@ export function AssistantMessage({
       disclaimer={<span>AI-generated content may be incorrect</span>}
       footnote={
         <>
-          {/* Custom sources section - similar to your previous project */}
+          {/* Custom sources section */}
           {uniqueSources.length > 0 && (
             <div className={styles.citationsContainer}>
               <div className={styles.citationsHeader}>Sources:</div>
@@ -82,6 +89,32 @@ export function AssistantMessage({
     >
       <Suspense fallback={<Spinner size="small" />}>
         <Markdown content={cleanContent} />
+        
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* CODE INTERPRETER IMAGES - Render base64 images */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {images.length > 0 && (
+          <div className={styles.imagesContainer}>
+            {images.map((image, index) => (
+              <div key={image.file_id || index} className={styles.imageWrapper}>
+                <img
+                  src={`data:${image.mime_type || 'image/png'};base64,${image.data}`}
+                  alt={image.filename || `Generated chart ${index + 1}`}
+                  className={styles.generatedImage}
+                  onError={(e) => {
+                    console.error('Image failed to load:', image.file_id);
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                {image.filename && (
+                  <div className={styles.imageCaption}>
+                    {image.filename}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </Suspense>
     </CopilotMessage>
   );

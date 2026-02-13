@@ -140,125 +140,117 @@ async def get_or_create_conversation(
     
     return conversation
 
-async def get_file_as_base64(openai_client: AsyncOpenAI, file_id: str) -> Optional[str]:
-    """FIXED: Proper async streaming."""
+async def get_container_file_as_base64(
+    openai_client: AsyncOpenAI, 
+    file_id: str, 
+    container_id: str
+) -> Optional[str]:
+    """
+    Download a file from a Code Interpreter container and convert to base64.
+    This is the CORRECT method for Microsoft Foundry Code Interpreter files.
+    """
     try:
-        logger.info(f"📥 File: {file_id}")
-        file_content = await openai_client.files.content(file_id)
-        file_bytes = b''.join([chunk async for chunk in file_content])  # ASYNC!
+        logger.info(f"📥 Downloading container file: {file_id} from container: {container_id}")
+        
+        # Use the containers API endpoint (Microsoft Foundry specific)
+        file_content = await openai_client.containers.files.content.retrieve(
+            file_id=file_id,
+            container_id=container_id
+        )
+        
+        # Read the content as bytes
+        file_bytes = file_content.read()
+        
+        # Encode to base64
         base64_encoded = base64.b64encode(file_bytes).decode('utf-8')
-        logger.info(f"✅ Base64: {len(file_bytes)/1024:.1f}KB")
+        logger.info(f"✅ Successfully converted file {file_id} to base64 ({len(file_bytes)/1024:.1f} KB)")
         return base64_encoded
     except Exception as e:
-        logger.error(f"❌ File failed: {e}")
+        logger.error(f"❌ Error downloading container file {file_id}: {e}", exc_info=True)
         return None
 
-
-
-import re
-import asyncio
-
-import re
-import base64
-from typing import Dict, Any
-import logging
-
-logger = logging.getLogger("azureaiapp")
-
 async def get_message_and_annotations(
-    message: Any,  # Message | ResponseOutputMessage
-    openai_client: AsyncOpenAI
-) -> Dict[str, Any]:
+    event: Message | ResponseOutputMessage, 
+    openai_client: AsyncOpenAI = None
+) -> Dict:
     """
-    Extract text, annotations and base64 images from file citations.
-    Handles container_file_citation (code interpreter plots) and file_citation.
+    Extract message content, annotations, and images from a message event.
+    Specifically handles container_file_citation from Code Interpreter.
     """
-    text = ""
     annotations = []
     images = []
-
-    if not message.content or len(message.content) == 0:
-        return {"content": "", "annotations": [], "images": []}
-
-    content_block = message.content[0]
-
-    if hasattr(content_block, "type") and content_block.type in ("output_text", "input_text"):
-        text = content_block.text or ""
-        logger.info(f"Text length: {len(text)} – starts: {text[:100]}...")
-
-        # ───────────────────────────────
-        # Handle annotations
-        # ───────────────────────────────
-        if hasattr(content_block, "annotations") and content_block.annotations:
-            for ann in content_block.annotations:
-                ann_type = getattr(ann, "type", None)
-
-                if ann_type in ("file_citation", "container_file_citation"):
-                    file_id   = getattr(ann, "file_id",   None)
-                    filename  = getattr(ann, "filename",  f"generated-{file_id[-8:]}.png") if file_id else "unknown.png"
-                    container = getattr(ann, "container_id", None)
-
-                    annotations.append({
-                        "type": ann_type,
-                        "file_id": file_id,
-                        "filename": filename,
-                        "container_id": container,
-                    })
-
-                    # Download image if we have file_id
-                    if file_id:
-                        try:
-                            logger.info(f"Downloading {ann_type} → file_id={file_id} ({filename})")
-                            file_resp = await openai_client.files.content(file_id)
-                            image_bytes = b"".join([chunk async for chunk in file_resp])
-
-                            if len(image_bytes) == 0:
-                                logger.warning(f"Empty file content: {file_id}")
-                                continue
-
-                            b64 = base64.b64encode(image_bytes).decode("utf-8")
-                            images.append({
-                                "file_id": file_id,
-                                "filename": filename,
-                                "container_id": container,
-                                "data": b64,
-                                "mime_type": "image/png",
-                                "size_kb": round(len(image_bytes) / 1024, 1)
-                            })
-                            logger.info(f"Image extracted successfully: {len(image_bytes)/1024:.1f} KB")
-
-                        except Exception as e:
-                            logger.error(f"Failed to download {file_id}: {e}", exc_info=True)
-                            images.append({
-                                "file_id": file_id,
-                                "filename": filename,
-                                "data": None,
-                                "status": "download_failed",
-                                "error": str(e)
-                            })
-
-                elif ann_type == "url_citation":
-                    annotations.append({
-                        "type": "url_citation",
-                        "title": getattr(ann, "title", ""),
-                        "start_index": getattr(ann, "start_index", None),
-                        "end_index": getattr(ann, "end_index", None),
-                    })
-
-        # Optional fallback regex (keep it, but it's usually not needed with container_file_citation)
-        sandbox_matches = re.findall(r'\(sandbox:/mnt/data/([a-zA-Z0-9_ -]+\.(png|jpg|jpeg))\)', text)
-        if sandbox_matches and not images:  # only if no real citations found
-            logger.warning("Found sandbox path but no file_id – this usually doesn't work")
-            # You can't reliably download from filename alone
-
-    result = {
-        "content": text.strip(),
-        "annotations": annotations,
-        "images": images,
+    text = ""
+    
+    # Get the first content block (usually text)
+    content = event.content[0] if event.content else None
+    if not content:
+        return {'content': '', 'annotations': [], 'images': []}
+    
+    # Extract text content
+    if content.type == "output_text" or content.type == "input_text":
+        text = content.text
+        
+    # Process annotations (including Code Interpreter file citations)
+    if content.type == "output_text":
+        for annotation in content.annotations:
+            # Handle regular file citations (from file search)
+            if annotation.type == "file_citation":
+                ann = {
+                    'label': annotation.filename,
+                    "index": annotation.index,
+                    "type": "file_citation"
+                }
+                annotations.append(ann)
+            
+            # Handle URL citations
+            elif annotation.type == "url_citation":
+                ann = {
+                    'label': annotation.title,
+                    "index": annotation.start_index,
+                    "type": "url_citation"
+                }
+                annotations.append(ann)
+            
+            # Handle Code Interpreter container file citations (THIS IS THE KEY!)
+            elif annotation.type == "container_file_citation":
+                logger.info(f"🎯 Found Code Interpreter output: {annotation.filename}")
+                
+                file_id = annotation.file_id
+                container_id = annotation.container_id
+                filename = annotation.filename
+                
+                # Add to annotations
+                ann = {
+                    'label': filename,
+                    'file_id': file_id,
+                    'container_id': container_id,
+                    "type": "container_file_citation"
+                }
+                annotations.append(ann)
+                
+                # Download and convert to base64 if it's an image
+                if openai_client and filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                    base64_image = await get_container_file_as_base64(
+                        openai_client, 
+                        file_id, 
+                        container_id
+                    )
+                    
+                    if base64_image:
+                        images.append({
+                            'file_id': file_id,
+                            'container_id': container_id,
+                            'filename': filename,
+                            'data': base64_image,
+                            'mime_type': 'image/png'
+                        })
+                        logger.info(f"✅ Added Code Interpreter image: {filename}")
+            
+    return {
+        'content': text,
+        'annotations': annotations,
+        'images': images
     }
-
-    logger.info(f"Extracted → {len(annotations)} citations, {len(images)} images")
-    return result
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -297,21 +289,15 @@ async def save_user_message_created_at(openai_client: AsyncOpenAI, conversation:
 async def get_result(
     agent: AgentVersionObject,
     conversation: Conversation,
-    user_message: str,
+    user_message: str, 
     project_client: AIProjectClient,
     carrier: Dict[str, str]
 ) -> AsyncGenerator[str, None]:
-    """
-    Main streaming endpoint logic: calls the agent, streams deltas,
-    detects code interpreter images early (when possible), converts to base64,
-    and sends everything to the frontend via SSE.
-    """
     ctx = TraceContextTextMapPropagator().extract(carrier=carrier)
     with tracer.start_as_current_span('get_result', context=ctx):
         async with project_client.get_openai_client() as openai_client:
             logger.info(f"get_result invoked for conversation={conversation.id}")
             input_created_at = datetime.now(timezone.utc).timestamp()
-
             try:
                 response = await openai_client.responses.create(
                     conversation=conversation.id,
@@ -319,135 +305,48 @@ async def get_result(
                     extra_body={"agent": AgentReference(name=agent.name, version=agent.version).as_dict()},
                     stream=True
                 )
-
-                logger.info("🚀 Stream created - watching for images...")
-
+                logger.info("Successfully created stream; starting to process events")
+                
                 async for event in response:
-                    # Response created
                     if event.type == "response.created":
-                        logger.info(f"📱 Response created: {event.response.id}")
-
-                    # Text deltas (live typing)
+                        logger.info(f"Stream response created with ID: {event.response.id}")
+                        
                     elif event.type == "response.output_text.delta":
-                        if event.delta:
-                            yield serialize_sse_event({
-                                'content': event.delta,
-                                'type': "message_delta"
-                            })
-
-                    # Log any code interpreter related event
-                    elif "code_interpreter" in str(event).lower():
-                        logger.info(f"🔍 CODE INTERPRETER EVENT: {event}")
-
-                    # ────────────────────────────────────────────────
-                    # DEBUG BLOCK: Log every "output_item.done" event
-                    # This catches both code interpreter completion and final message
-                    # ────────────────────────────────────────────────
-                    elif event.type == "response.output_item.done":
-                        logger.info(
-                            f"Output item done - item type: {getattr(event.item, 'type', 'NO_TYPE')}"
-                        )
-                        if hasattr(event.item, "outputs"):
-                            logger.info(f"Outputs present: {len(event.item.outputs)} items")
-                            for idx, out in enumerate(event.item.outputs):
-                                out_str = out.__dict__ if hasattr(out, '__dict__') else str(out)
-                                logger.info(f"Output {idx}: {out_str}")
-                        else:
-                            logger.info("No 'outputs' attribute on this item")
-
-                    # ────────────────────────────────────────────────
-                    # Early image download attempt (for code interpreter)
-                    # ────────────────────────────────────────────────
-                    elif (
-                        event.type == "response.output_item.done"
-                        and hasattr(event.item, "type")
-                        and event.item.type == "code_interpreter_call"
-                    ):
-                        logger.info("🔧 Code interpreter call completed → checking for image output")
-
-                        if hasattr(event.item, "outputs") and event.item.outputs:
-                            for output in event.item.outputs:
-                                file_id = getattr(output, "file_id", None)
-                                if file_id:
-                                    try:
-                                        logger.info(f"Early download attempt for file_id={file_id}")
-                                        file_resp = await openai_client.files.content(file_id)
-                                        image_bytes = b"".join([chunk async for chunk in file_resp])
-
-                                        if not image_bytes:
-                                            logger.warning(f"Empty content for file_id={file_id}")
-                                            continue
-
-                                        b64 = base64.b64encode(image_bytes).decode("utf-8")
-                                        logger.info(f"Early image success: {len(image_bytes)/1024:.1f} KB")
-
-                                        yield serialize_sse_event({
-                                            "type": "image_early",
-                                            "file_id": file_id,
-                                            "data": b64,
-                                            "mime_type": "image/png",
-                                            "size_kb": round(len(image_bytes) / 1024, 1)
-                                        })
-
-                                    except openai.NotFoundError:
-                                        logger.warning(f"File {file_id} already gone (404) during early attempt")
-                                    except Exception as e:
-                                        logger.error(f"Early download failed {file_id}: {e}", exc_info=True)
-                                        yield serialize_sse_event({
-                                            "type": "image_error",
-                                            "file_id": file_id,
-                                            "error": str(e)
-                                        })
-
-                    # Final assistant message → text + fallback image extraction
-                    elif (
-                        event.type == "response.output_item.done"
-                        and hasattr(event.item, "type")
-                        and event.item.type == "message"
-                    ):
-                        logger.info("📄 Final message processing...")
-
-                        try:
-                            stream_data = await get_message_and_annotations(event.item, openai_client)
-
-                            stream_data["type"] = "completed_message"
-                            stream_data["role"] = "assistant"
-
-                            if hasattr(event.item, "id"):
-                                stream_data["message_id"] = event.item.id
-
-                            img_count = len(stream_data.get("images", []))
-                            logger.info(
-                                f"Sending completed_message | "
-                                f"text len={len(stream_data['content'])}, "
-                                f"images={img_count}"
-                            )
-
-                            yield serialize_sse_event(stream_data)
-
-                        except Exception as e:
-                            logger.error(f"Error processing final message: {e}", exc_info=True)
-                            yield serialize_sse_event({
-                                "type": "error",
-                                "content": "Error processing assistant response",
-                                "error": str(e)
-                            })
-
-                    # Response fully completed
+                        logger.info(f"Delta: {event.delta}")
+                        stream_data = {'content': event.delta, 'type': "message"}
+                        yield serialize_sse_event(stream_data)
+                        
+                    elif event.type == "response.output_item.done" and event.item.type == "message":
+                        # Process the completed message (includes Code Interpreter images)
+                        stream_data = await get_message_and_annotations(event.item, openai_client)
+                        stream_data['type'] = "completed_message"
+                        yield serialize_sse_event(stream_data)
+                        
                     elif event.type == "response.completed":
-                        logger.info("🏁 Response complete")
-
+                        logger.info(f"Response completed with full message: {event.response.output_text}")
+                        
+                    # Handle code interpreter logs (optional)
+                    elif event.type == "response.code_interpreter.logs":
+                        logger.info(f"Code Interpreter logs: {event.logs}")
+                        stream_data = {
+                            'content': f"[Code Execution Logs]\n{event.logs}",
+                            'type': "code_logs"
+                        }
+                        yield serialize_sse_event(stream_data)
+                                                        
             except Exception as e:
-                logger.exception(f"❌ Stream error: {e}")
-                yield serialize_sse_event({
-                    "type": "error",
-                    "content": "Sorry, there was an error processing your request.",
-                    "error": str(e)
-                })
-
+                logger.exception(f"Exception in get_result: {e}")
+                error_data = {
+                    'content': str(e),
+                    'annotations': [],
+                    'images': [],
+                    'type': "completed_message"
+                }
+                yield serialize_sse_event(error_data)
             finally:
+                stream_data = {'type': "stream_end"}
                 await save_user_message_created_at(openai_client, conversation, input_created_at)
-                yield serialize_sse_event({"type": "stream_end"})          
+                yield serialize_sse_event(stream_data)           
 
 
 
