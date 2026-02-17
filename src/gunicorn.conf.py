@@ -512,17 +512,20 @@ async def initialize_resources():
             agentID = os.environ.get("AZURE_EXISTING_AGENT_ID")
 
             if agentID:
+                # Agent IDs in this project are plain names (e.g. "InsightBot-SLIIT-v5").
+                # Fetch the agent by name and grab its latest version.
                 try:
-                    agent_name = agentID.split(":")[0]
-                    agent_version = agentID.split(":")[1]
-                    agent_obj = await project_client.agents.get_version(agent_name, agent_version)
-                    logger.info(f"Found agent by ID: {agent_obj.id}")
+                    logger.info(f"Looking up existing agent by ID/name: '{agentID}'")
+                    agents_result = await project_client.agents.get(agentID)
+                    agent_obj = agents_result.versions.latest
+                    logger.info(f"Found existing agent '{agentID}' (version obj id: {agent_obj.id})")
                 except Exception as e:
                     logger.warning(
-                        "Could not retrieve agent by AZURE_EXISTING_AGENT_ID = "
-                        f"{agentID}, error: {e}")
+                        f"Could not retrieve agent by AZURE_EXISTING_AGENT_ID='{agentID}': {e}. "
+                        "Will try by AZURE_AI_AGENT_NAME or create a new agent."
+                    )
             else:
-                logger.info("No existing agent ID found.")
+                logger.info("AZURE_EXISTING_AGENT_ID not set.")
 
             # Check if an agent with the same name already exists
             if not agent_obj:
@@ -540,11 +543,13 @@ async def initialize_resources():
                 agent_obj = await create_agent(project_client, openai_client, credential)
                 logger.info(f"Created agent, agent ID: {agent_obj.id}")
 
+            # Persist the agent name so next startup reuses it directly.
             os.environ["AZURE_EXISTING_AGENT_ID"] = agent_obj.id
+            logger.info(f"AZURE_EXISTING_AGENT_ID set to: {agent_obj.id}")
 
             await initialize_eval(project_client, openai_client, agent_obj, credential)
     except Exception as e:
-        logger.info("Error creating agent: {e}", exc_info=True)
+        logger.info(f"Error creating agent: {e}", exc_info=True)
         raise RuntimeError(f"Failed to create the agent: {e}")  
 
 

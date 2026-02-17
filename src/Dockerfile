@@ -28,12 +28,19 @@ RUN pnpm install --frozen-lockfile=false \
     && rm -rf /root/.local/share/pnpm \
     && rm -rf /root/.pnpm-store
 
-
-RUN apt-get purge -y krb5-user libkrb5-3 libkrb5support0 libgssapi-krb5-2
-
 # Return to backend directory
 WORKDIR /code
 
+# Clean up unnecessary packages
+RUN apt-get purge -y nodejs curl \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 EXPOSE 50505
 
-CMD ["gunicorn", "api.main:create_app"]
+CMD ["gunicorn", "api.main:create_app", \
+     "--bind", "0.0.0.0:50505", \
+     "--workers", "4", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--timeout", "120"]
