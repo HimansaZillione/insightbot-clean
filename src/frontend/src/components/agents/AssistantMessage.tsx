@@ -20,25 +20,17 @@ export function AssistantMessage({
   showUsageInfo,
   onDelete,
 }: IAssistantMessageProps): React.JSX.Element {
-  // Clean inline citation markers
+  // Clean inline citation markers like 【4:1†source】
   const cleanContent = message.content.replace(/【[^】]+†source】/g, "");
 
-  // Prepare sources - using 'label' as the display name
+  // Deduplicate annotations by label
   const annotations = Array.isArray(message.annotations) ? message.annotations : [];
-
-  // Optional: deduplicate by label (like you did with new Set)
   const uniqueSources = Array.from(
-    new Map(annotations.map(a => [a.label, a])).values()
+    new Map(annotations.map((a) => [a.label, a])).values()
   );
 
-  // Get images from message
+  // Code Interpreter images
   const images = Array.isArray(message.images) ? message.images : [];
-
-  // console.log("DEBUG - message.annotations:", message.annotations);
-  // console.log("DEBUG - annotations length:", annotations.length);
-  // console.log("DEBUG - uniqueSources:", uniqueSources);
-  // console.log("DEBUG - message.images:", message.images);
-  // console.log("DEBUG - images length:", images.length);
 
   return (
     <CopilotMessage
@@ -50,9 +42,7 @@ export function AssistantMessage({
             <Button
               appearance="subtle"
               icon={<DeleteIcon />}
-              onClick={() => {
-                void onDelete(message.id);
-              }}
+              onClick={() => void onDelete(message.id)}
             />
           )}
         </span>
@@ -62,7 +52,7 @@ export function AssistantMessage({
       disclaimer={<span>AI-generated content may be incorrect</span>}
       footnote={
         <>
-          {/* Custom sources section */}
+          {/* ── Sources / Citations ── */}
           {uniqueSources.length > 0 && (
             <div className={styles.citationsContainer}>
               <div className={styles.citationsHeader}>Sources:</div>
@@ -70,9 +60,24 @@ export function AssistantMessage({
                 {uniqueSources.map((annotation, i) => (
                   <div key={i} className={styles.citationItem}>
                     <span className={styles.citationNumber}>[{i + 1}]</span>
-                    <span className={styles.citationTitle}>
-                      {annotation.label || "Document"}
-                    </span>
+
+                    {annotation.url ? (
+                      // Clickable link — opens the doc via the backend SAS proxy
+                      <a
+                        href={annotation.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.citationLink}
+                        title={`Open: ${annotation.label}`}
+                      >
+                        {annotation.label || "Document"}
+                      </a>
+                    ) : (
+                      // Fallback: plain text when no URL available
+                      <span className={styles.citationTitle}>
+                        {annotation.label || "Document"}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -89,27 +94,23 @@ export function AssistantMessage({
     >
       <Suspense fallback={<Spinner size="small" />}>
         <Markdown content={cleanContent} />
-        
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* CODE INTERPRETER IMAGES - Render base64 images */}
-        {/* ═══════════════════════════════════════════════════════════ */}
+
+        {/* ── Code Interpreter images ── */}
         {images.length > 0 && (
           <div className={styles.imagesContainer}>
             {images.map((image, index) => (
               <div key={image.file_id || index} className={styles.imageWrapper}>
                 <img
-                  src={`data:${image.mime_type || 'image/png'};base64,${image.data}`}
+                  src={`data:${image.mime_type || "image/png"};base64,${image.data}`}
                   alt={image.filename || `Generated chart ${index + 1}`}
                   className={styles.generatedImage}
                   onError={(e) => {
-                    console.error('Image failed to load:', image.file_id);
-                    e.currentTarget.style.display = 'none';
+                    console.error("Image failed to load:", image.file_id);
+                    e.currentTarget.style.display = "none";
                   }}
                 />
                 {image.filename && (
-                  <div className={styles.imageCaption}>
-                    {image.filename}
-                  </div>
+                  <div className={styles.imageCaption}>{image.filename}</div>
                 )}
               </div>
             ))}

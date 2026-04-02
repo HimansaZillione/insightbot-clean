@@ -81,7 +81,6 @@
 
 
 .inputContainer {
-  /* TODO: File an issue with Fluent team to allow for a safer override of the input box styles, or figure out a better approach to customize the chat input box styles */
   > div:first-child > div:first-child {
     padding: 12px 12px 6px;
     border: none;
@@ -140,10 +139,12 @@
     transform 0.3s ease-in-out;
 }
 
+/* ── Citations ─────────────────────────────────────────────────────────────── */
+
 .citationsContainer {
   margin-top: 16px;
   font-size: 14px;
-  color: #d1d5db; /* light gray for dark theme */
+  color: #d1d5db;
 }
 
 .citationsHeader {
@@ -169,12 +170,30 @@
   min-width: 24px;
 }
 
+/* Plain text fallback (no URL) */
 .citationTitle {
-  color: #010a15; /* blue link-like color */
+  color: var(--colorNeutralForeground2);
+}
+
+/* Clickable link when URL is available */
+.citationLink {
+  color: var(--colorBrandForeground1);
+  text-decoration: none;
+  word-break: break-word;
+  cursor: pointer;
+}
+
+.citationLink:hover {
+  text-decoration: underline;
+  color: var(--colorBrandForeground2);
+}
+
+.citationLink:visited {
+  color: var(--colorBrandForeground1);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════ */
-/* CODE INTERPRETER IMAGES STYLING */
+/* CODE INTERPRETER IMAGES STYLING                                        */
 /* ═══════════════════════════════════════════════════════════════════════ */
 
 .imagesContainer {
@@ -220,7 +239,6 @@
   word-break: break-all;
 }
 
-/* Responsive design for smaller screens */
 @media (max-width: 768px) {
   .imagesContainer {
     margin-top: 12px;
