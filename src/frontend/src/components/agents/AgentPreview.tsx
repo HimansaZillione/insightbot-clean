@@ -1,10 +1,9 @@
 import { ReactNode, useState, useMemo, useEffect } from "react";
 import {
   Body1,
-  Button,
-  Caption1,
+  Button,  
   Spinner,
-  Title3,
+ 
 } from "@fluentui/react-components";
 import { ChatRegular, MoreHorizontalRegular } from "@fluentui/react-icons";
 import clsx from "clsx";
@@ -255,6 +254,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
     }
   };
 
+  // ─── ORIGINAL handleMessages — restored exactly ───────────────────────────
   const handleMessages = (stream: ReadableStream<Uint8Array<ArrayBufferLike>>) => {
     let chatItem: IChatItem | null = null;
     let accumulatedContent = "";
@@ -308,7 +308,6 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
             } else {
               if (!chatItem) {
                 chatItem = createAssistantMessageDiv();
-                //console.log("[ChatClient] Created new messageDiv for assistant.");
               }
 
               if (data.type === "completed_message") {
@@ -317,8 +316,6 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
                 // ═══════════════════════════════════════════════════════════
                 if (hasReceivedCompletedMessage) {
                   chatItem = createAssistantMessageDiv();
-                  //console.log("[ChatClient] Created new messageDiv for additional completed message.");
-                  
                   accumulatedContent = data.content;
                   annotations = data.annotations || [];
                 } else {
@@ -334,17 +331,11 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
                 if (chatItem) {
                   chatItem.annotations = annotations;
                   chatItem.images = data.images || []; // ← THIS IS CRITICAL
-                  
-                  // console.log("[ChatClient] Saved to chatItem:");
-                  // console.log("  - annotations:", chatItem.annotations?.length);
-                  // console.log("  - images:", chatItem.images?.length);
+
                   if (chatItem.images && chatItem.images.length > 0) {
-                    // console.log("  - First image file_id:", chatItem.images[0].file_id);
-                    // console.log("  - Image data length:", chatItem.images[0].data?.length);
+                    // image debug logging omitted
                   }
                 }
-
-                //console.log("[ChatClient] Received completed message:", accumulatedContent);
 
                 isStreaming = false;
                 setIsResponding(false);
@@ -361,8 +352,6 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
                 // Streaming content
                 if (hasReceivedCompletedMessage) {
                   chatItem = createAssistantMessageDiv();
-                  //console.log("[ChatClient] Created new messageDiv for streaming after completed message.");
-                  
                   annotations = [];
                   accumulatedContent = "";
                   hasReceivedCompletedMessage = false;
@@ -370,8 +359,6 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
 
                 accumulatedContent += data.content;
                 isStreaming = true;
-
-                //console.log("[ChatClient] Received streaming chunk:", data.content);
 
                 appendAssistantMessage(
                   chatItem,
@@ -393,6 +380,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
       console.error("[ChatClient] Stream reading failed:", error);
     });
   };
+  // ─────────────────────────────────────────────────────────────────────────
 
   const createAssistantMessageDiv: () => IChatItem = () => {
     var item = {
@@ -426,11 +414,6 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
       chatItem.content = htmlContent;
       chatItem.annotations = annotations || [];
       chatItem.images = images || []; // ← THIS IS CRITICAL
-
-      // console.log("[appendAssistantMessage] Saved to chatItem:");
-      // console.log("  - content length:", chatItem.content.length);
-      // console.log("  - annotations:", chatItem.annotations?.length);
-      // console.log("  - images:", chatItem.images?.length);
 
       // Update the message list
       setMessageList((prev) => {
@@ -493,41 +476,67 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
 
   return (
     <div className={styles.container}>
+      {/* Animated wave background — paused when chat is active */}
       <div className={styles.wavesContainer}>
         <Waves paused={!isEmpty} />
       </div>
+
+      {/* ── Top bar ── */}
       <div className={styles.topBar}>
+        {/* Left: SLIIT logo + live badge + agent name */}
         <div className={styles.leftSection}>
-          {agentDetails.name ? (
-            <div className={styles.agentIconContainer}>
-              <AgentIcon
-                alt=""
-                iconClassName={styles.agentIcon}
-                iconName={agentDetails.metadata?.logo}
-              />
+          <div className={styles.agentIconContainer}>
+            {/* SLIIT crest */}
+            <img
+              src="/static/assets/template-images/SLIIT-UNI-LOGO.png"
+              alt="SLIIT"
+              style={{
+                height: 36,
+                width: "auto",
+                display: "block",
+                filter: "drop-shadow(0 0 8px rgba(0,0,0,0.30))",
+              }}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+            {agentDetails.name ? (
               <Body1 as="h1" className={styles.agentName}>
                 {agentDetails.name}
               </Body1>
-            </div>
-          ) : (
-            <div className={styles.agentIconContainer}>
-              <div
-                className={clsx(styles.agentIcon, {
-                  [styles.newAgent]: true,
-                })}
-              />
+            ) : (
               <Body1
                 as="h1"
-                className={clsx(styles.agentName, {
-                  [styles.newAgent]: true,
-                })}
+                className={clsx(styles.agentName, styles.newAgent)}
               >
-                Agent Name
+                BOT-SLIIT
               </Body1>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Live pulse badge */}
+          <div className={styles.liveBadge}>
+            <div className={styles.livePulse} />
+            <span>live · BOT-SLIIT</span>
+          </div>
         </div>
+
+        {/* Right: nav chips + new chat + menu */}
         <div className={styles.rightSection}>
+          <button
+            className={styles.navChip}
+            type="button"
+            onClick={() => window.open("https://sliit.lk/contact", "_blank")}
+          >
+            Contact
+          </button>
+          <button
+            className={styles.navChip}
+            type="button"
+            onClick={() => window.open("https://sliit.lk", "_blank")}
+          >
+            About&nbsp;us
+          </button>
           <Button
             appearance="subtle"
             icon={<ChatRegular aria-hidden={true} />}
@@ -547,6 +556,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
         </div>
       </div>
 
+      {/* ── Main content ── */}
       <div className={styles.content}>
         <div className={styles.chatbot}>
           {isLoadingChatHistory ? (
@@ -560,12 +570,59 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
                     iconClassName={styles.emptyStateAgentIcon}
                     iconName={agentDetails.metadata?.logo}
                   />
-                  <Caption1 className={styles.agentName}>
-                    {agentDetails.name}
-                  </Caption1>
-                  <Title3>How can I help you today?</Title3>
+
+                  <h1
+                    style={{
+                      margin: "0 0 6px",
+                      fontFamily: "'Albert Sans', 'Space Grotesk', system-ui, sans-serif",
+                      fontWeight: 800,
+                      fontSize: "clamp(20px, 3vw, 30px)",
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                      color: "#d6e0ff",
+                      lineHeight: 1.15,
+                      textAlign: "center",
+                    }}
+                  >
+                    Academic Copilot for SLIIT
+                  </h1>
+
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 13,
+                      color: "rgba(255,255,255,0.50)",
+                      maxWidth: 440,
+                      lineHeight: 1.6,
+                      textAlign: "center",
+                    }}
+                  >
+                    Information provided for reference only. Verify decisions
+                    through the Academic Affairs Division (AA).
+                  </p>
+
+                  <div
+                    style={{
+                      marginTop: 10,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 7,
+                      padding: "6px 13px",
+                      borderRadius: 999,
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,179,71,0.18)",
+                      fontSize: 11,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      color: "rgba(255,217,133,0.70)",
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    All interactions are logged for policy compliance
+                  </div>
                 </div>
               )}
+
               <AgentPreviewChatBot
                 agentName={agentDetails.name}
                 agentLogo={agentDetails.metadata?.logo}
@@ -576,7 +633,10 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
         </div>
 
         {agentDetails.agentPlaygroundUrl && agentDetails.agentPlaygroundUrl.length > 0 ? (
-          <BuiltWithBadge className={styles.builtWithBadge} agentPlaygroundUrl={agentDetails.agentPlaygroundUrl} />
+          <BuiltWithBadge
+            className={styles.builtWithBadge}
+            agentPlaygroundUrl={agentDetails.agentPlaygroundUrl}
+          />
         ) : (
           <></>
         )}

@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Body1, Subtitle1, Button } from "@fluentui/react-components";
+import { Button } from "@fluentui/react-components";
 import { AgentIcon } from "./AgentIcon";
 import styles from "./StarterMessages.module.css";
 
@@ -16,27 +16,40 @@ export function StarterMessages({
   agentDescription,
   onPromptClick,
 }: IStarterMessageProps): ReactNode {
-  // Default starter prompts for demonstration
   const defaultStarterPrompts = [
-    "How can you help me?",
-    "What are your capabilities?",
-    "Tell me about yourself",
+    "What are the academic regulations?",
+    "How do I apply for medical leave?",
+    "Explain the credit transfer process",
+    "What are my graduation requirements?",
   ];
 
   return (
     <div className={styles.zeroprompt}>
       <div className={styles.content}>
         <AgentIcon
-          alt={agentName ?? "Agent"}
+          alt={agentName ?? "BOT-SLIIT"}
           iconClassName={styles.emptyStateAgentIcon}
           iconName={agentLogo}
         />
-        <Subtitle1 className={styles.welcome}>
-          {agentName ? `Hello! I'm ${agentName}` : "Hello! How can I help you today?"}
-        </Subtitle1>
-        {agentDescription && (
-          <Body1 className={styles.caption}>{agentDescription}</Body1>
+
+        <h2 className={styles.welcome}>
+          {agentName
+            ? `Hello! I'm ${agentName}`
+            : "How can I help you today?"}
+        </h2>
+
+        {agentDescription ? (
+          <p className={styles.caption}>{agentDescription}</p>
+        ) : (
+          <p className={styles.caption}>
+            Ask me anything about SLIIT academic policies, regulations,
+            and procedures. I'll do my best to assist you.
+          </p>
         )}
+
+        <div className={styles.notice}>
+          ⚡ All interactions logged · verify with Academic Affairs Division
+        </div>
       </div>
 
       {onPromptClick && (
@@ -47,7 +60,7 @@ export function StarterMessages({
               appearance="subtle"
               onClick={() => onPromptClick(prompt)}
             >
-              <Body1>{prompt}</Body1>
+              {prompt}
             </Button>
           ))}
         </div>

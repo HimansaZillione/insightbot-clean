@@ -1,18 +1,24 @@
+/* ═══════════════════════════════════════════════════════
+   BOT-SLIIT Theme — AssistantMessage
+   ═══════════════════════════════════════════════════════ */
+
 .assistantMessageContainer {
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  margin-bottom: 16px;
-  background-color: var(--colorNeutralBackground1);
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  border-top-left-radius: 4px;
+  box-shadow: none;
 }
 
 .messageHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .avatarAndName {
@@ -23,10 +29,11 @@
 .avatar {
   width: 32px;
   height: 32px;
-  margin-right: 8px;
+  margin-right: 10px;
   border-radius: 50%;
   overflow: hidden;
-  background-color: var(--colorNeutralBackground3);
+  background: rgba(255, 217, 133, 0.08);
+  border: 1px solid rgba(255, 217, 133, 0.20);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -39,21 +46,35 @@
 
 .botName {
   font-weight: 600;
-  color: var(--colorNeutralForeground1);
+  font-size: 13px;
+  color: #FFD985;
+  letter-spacing: 0.03em;
 }
 
 .actions {
   display: flex;
 }
 
+/* Action button colors */
+.actions button {
+  color: rgba(255, 255, 255, 0.40) !important;
+  transition: color 0.15s !important;
+}
+.actions button:hover {
+  color: rgba(255, 159, 67, 0.80) !important;
+}
+
 .messageContent {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 14px;
+  line-height: 1.65;
 }
 
 .messageFootnote {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--colorNeutralStroke2);
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
   font-size: 12px;
 }
 
@@ -68,20 +89,23 @@
 }
 
 .reference {
-  background-color: var(--colorNeutralBackground3);
-  padding: 4px 8px;
-  border-radius: 4px;
+  background: rgba(255, 159, 67, 0.07);
+  border: 1px solid rgba(255, 159, 67, 0.20);
+  padding: 4px 10px;
+  border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
+  color: rgba(255, 217, 133, 0.85);
+  transition: background 0.15s;
 }
 
 .reference:hover {
-  background-color: var(--colorNeutralBackground4);
+  background: rgba(255, 159, 67, 0.14);
 }
 
 .disclaimer {
-  font-size: 12px;
-  color: var(--colorNeutralForeground3);
-  margin-top: 12px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.30);
+  margin-top: 10px;
   font-style: italic;
 }
