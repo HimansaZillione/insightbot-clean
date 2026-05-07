@@ -7,6 +7,7 @@ import os
 from azure.ai.projects.aio import AIProjectClient
 from azure.identity.aio import DefaultAzureCredential
 from azure.ai.projects.telemetry import AIProjectInstrumentor
+from azure.ai.projects.models import AgentVersionDetails
 
 import fastapi
 from fastapi.staticfiles import StaticFiles

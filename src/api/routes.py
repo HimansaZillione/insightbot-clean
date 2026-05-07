@@ -15,7 +15,8 @@ from fastapi.templating import Jinja2Templates
 
 import logging
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
-from azure.ai.projects.models import AgentVersionObject, AgentReference
+from azure.ai.projects.models import AgentVersionDetails   # ✅ was AgentVersionObject
+# ✅ AgentReference removed — no longer exists in 2.1.0
 from openai.types.conversations.message import Message
 from openai.types.responses import ResponseOutputMessage
 from openai.types.conversations import Conversation
@@ -28,7 +29,7 @@ from azure.ai.projects.aio import AIProjectClient
 
 from util import encode_project_resource_id
 
-from urllib.parse import quote 
+from urllib.parse import quote
 
 from openai import AsyncOpenAI
 
@@ -36,27 +37,19 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import secrets
 
-# Create a logger for this module
 logger = logging.getLogger("azureaiapp")
-
-# Set the log level for the azure HTTP logging policy to WARNING (or ERROR)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
 
 from opentelemetry import trace
-
 tracer = trace.get_tracer(__name__)
 
-# Define the directory for your templates.
 directory = os.path.join(os.path.dirname(__file__), "templates")
 templates = Jinja2Templates(directory=directory)
-
-# Create a new FastAPI router
 router = fastapi.APIRouter()
 
 # ── Auth setup ────────────────────────────────────────────────────────────────
 
 security = HTTPBasic()
-
 username = os.getenv("WEB_APP_USERNAME")
 password = os.getenv("WEB_APP_PASSWORD")
 basic_auth = username and password
@@ -66,7 +59,6 @@ def authenticate(credentials: Optional[HTTPBasicCredentials] = Depends(security)
     if not basic_auth:
         logger.info("Skipping authentication: WEB_APP_USERNAME or WEB_APP_PASSWORD not set.")
         return
-
     correct_username = secrets.compare_digest(credentials.username, username)
     correct_password = secrets.compare_digest(credentials.password, password)
     if not (correct_username and correct_password):
@@ -78,13 +70,11 @@ def authenticate(credentials: Optional[HTTPBasicCredentials] = Depends(security)
     return
 
 
-# auth_dependency MUST be defined before any route references it
 auth_dependency = Depends(authenticate) if basic_auth else None
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def cleanup_created_at_metadata(metadata: Mapping[str, str]) -> None:
-    """Remove oldest created_at timestamp entries to keep metadata under 16 items limit."""
     if not metadata:
         return
     while len(metadata) > 16:
@@ -99,7 +89,7 @@ def get_project_client(request: Request) -> AIProjectClient:
     return request.app.state.ai_project
 
 
-def get_agent_version_obj(request: Request) -> AgentVersionObject:
+def get_agent_version_obj(request: Request) -> AgentVersionDetails:   # ✅
     return request.app.state.agent_version_obj
 
 
@@ -121,9 +111,7 @@ async def get_or_create_conversation(
     agent_id: Optional[str],
     current_agent_id: str
 ) -> Conversation:
-    """Get an existing conversation or create a new one."""
     conversation: Optional[Conversation] = None
-
     if conversation_id and agent_id == current_agent_id:
         try:
             logger.info(f"Using existing conversation with ID {conversation_id}")
@@ -131,7 +119,6 @@ async def get_or_create_conversation(
             logger.info(f"Retrieved conversation: {conversation.id}")
         except Exception as e:
             logger.error(f"Error retrieving conversation: {e}")
-
     if not conversation:
         try:
             logger.info("Creating a new conversation")
@@ -140,7 +127,6 @@ async def get_or_create_conversation(
         except Exception as e:
             logger.error(f"Error creating conversation: {e}")
             raise HTTPException(status_code=400, detail=f"Error handling conversation: {e}")
-
     return conversation
 
 
@@ -149,24 +135,18 @@ async def get_container_file_as_base64(
     file_id: str,
     container_id: str
 ) -> Optional[str]:
-    """
-    Download a file from a Code Interpreter container and convert to base64.
-    This is the CORRECT method for Microsoft Foundry Code Interpreter files.
-    """
     try:
-        logger.info(f"📥 Downloading container file: {file_id} from container: {container_id}")
-
+        logger.info(f"Downloading container file: {file_id} from container: {container_id}")
         file_content = await openai_client.containers.files.content.retrieve(
             file_id=file_id,
             container_id=container_id
         )
-
         file_bytes = file_content.read()
         base64_encoded = base64.b64encode(file_bytes).decode('utf-8')
-        logger.info(f"✅ Successfully converted file {file_id} to base64 ({len(file_bytes)/1024:.1f} KB)")
+        logger.info(f"Successfully converted file {file_id} to base64 ({len(file_bytes)/1024:.1f} KB)")
         return base64_encoded
     except Exception as e:
-        logger.error(f"❌ Error downloading container file {file_id}: {e}", exc_info=True)
+        logger.error(f"Error downloading container file {file_id}: {e}", exc_info=True)
         return None
 
 
@@ -174,10 +154,6 @@ async def get_message_and_annotations(
     event: Message | ResponseOutputMessage,
     openai_client: AsyncOpenAI = None
 ) -> Dict:
-    """
-    Extract message content, annotations, and images from a message event.
-    Each annotation type is handled independently to avoid attribute errors.
-    """
     annotations = []
     images = []
     text = ""
@@ -191,9 +167,7 @@ async def get_message_and_annotations(
 
     if content.type == "output_text":
         for annotation in content.annotations:
-
             if annotation.type == "file_citation":
-                # file_citation has: filename, index
                 label = getattr(annotation, 'filename', '') or ""
                 ann = {
                     'label': label,
@@ -204,12 +178,9 @@ async def get_message_and_annotations(
                 annotations.append(ann)
 
             elif annotation.type == "url_citation":
-                # annotation.url is always the AI Search endpoint — not the blob URL
-                # Use title (filename) and let get_document resolve the full blob path
                 label = getattr(annotation, 'title', '') or ""
                 proxy_url = f"/api/document/{quote(label)}" if label else None
-                logger.info(f"Citation: '{label}' → {proxy_url}")
-
+                logger.info(f"Citation: '{label}' -> {proxy_url}")
                 ann = {
                     'label': label,
                     'index': getattr(annotation, 'start_index', None),
@@ -219,12 +190,10 @@ async def get_message_and_annotations(
                 annotations.append(ann)
 
             elif annotation.type == "container_file_citation":
-                # container_file_citation: file_id, container_id, filename
-                logger.info(f"🎯 Found Code Interpreter output: {annotation.filename}")
+                logger.info(f"Found Code Interpreter output: {annotation.filename}")
                 file_id = annotation.file_id
                 container_id = annotation.container_id
                 filename = annotation.filename
-
                 ann = {
                     'label': filename,
                     'file_id': file_id,
@@ -232,8 +201,6 @@ async def get_message_and_annotations(
                     'type': 'container_file_citation',
                 }
                 annotations.append(ann)
-
-                # Download images generated by Code Interpreter
                 if openai_client and filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
                     base64_image = await get_container_file_as_base64(
                         openai_client, file_id, container_id
@@ -246,16 +213,11 @@ async def get_message_and_annotations(
                             'data': base64_image,
                             'mime_type': 'image/png'
                         })
-                        logger.info(f"✅ Added Code Interpreter image: {filename}")
-
+                        logger.info(f"Added Code Interpreter image: {filename}")
             else:
                 logger.warning(f"Unknown annotation type '{annotation.type}' — skipping")
 
-    return {
-        'content': text,
-        'annotations': annotations,
-        'images': images,
-    }
+    return {'content': text, 'annotations': annotations, 'images': images}
 
 
 async def save_user_message_created_at(
@@ -303,21 +265,15 @@ async def get_document(filename: str, request: Request, _=auth_dependency):
         async with DefaultAzureCredential() as credential:
             async with BlobServiceClient(account_url=account_url.rstrip('/'), credential=credential) as svc:
                 container_client = svc.get_container_client(container_name)
-
-                # filename may be just "Minutes of the 28th...doc" without subfolder
-                # Search all blobs for an exact name match
                 actual_blob_name = None
                 async for blob in container_client.list_blobs():
                     if blob.name == filename or blob.name.endswith(f"/{filename}"):
                         actual_blob_name = blob.name
                         break
-
                 if not actual_blob_name:
                     logger.warning(f"Blob not found: '{filename}'")
                     raise HTTPException(status_code=404, detail=f"Document not found: {filename}")
-
-                logger.info(f"Resolved '{filename}' → '{actual_blob_name}'")
-
+                logger.info(f"Resolved '{filename}' -> '{actual_blob_name}'")
                 now = datetime.now(timezone.utc)
                 delegation_key = await svc.get_user_delegation_key(
                     key_start_time=now,
@@ -334,7 +290,6 @@ async def get_document(filename: str, request: Request, _=auth_dependency):
                 blob_url = f"{account_url.rstrip('/')}/{container_name}/{quote(actual_blob_name)}?{sas_token}"
                 logger.info(f"SAS redirect: {actual_blob_name}")
                 return RedirectResponse(url=blob_url, status_code=302)
-
     except HTTPException:
         raise
     except Exception as e:
@@ -345,7 +300,7 @@ async def get_document(filename: str, request: Request, _=auth_dependency):
 @router.get("/chat/history")
 async def history(
     request: Request,
-    agent: AgentVersionObject = Depends(get_agent_version_obj),
+    agent: AgentVersionDetails = Depends(get_agent_version_obj),   # ✅
     openai_client: AsyncOpenAI = Depends(get_openai_client),
     _ = auth_dependency,
 ):
@@ -353,12 +308,10 @@ async def history(
         async with openai_client:
             conversation_id = request.cookies.get('conversation_id')
             agent_id = request.cookies.get('agent_id')
-
             conversation = await get_or_create_conversation(
                 openai_client, conversation_id, agent_id, agent.id
             )
             agent_id = agent.id
-
             try:
                 content = []
                 items = await openai_client.conversations.items.list(
@@ -372,7 +325,6 @@ async def history(
                             get_created_at_label(item.id), ""
                         )
                         content.append(formatted_message)
-
                 logger.info(f"List message, conversation ID: {conversation_id}")
                 response = JSONResponse(content=content)
                 response.set_cookie("conversation_id", conversation_id)
@@ -385,18 +337,16 @@ async def history(
 
 @router.get("/agent")
 async def get_chat_agent(
-    agent: AgentVersionObject = Depends(get_agent_version_obj),
+    agent: AgentVersionDetails = Depends(get_agent_version_obj),   # ✅
 ):
     wsid = os.environ.get("AZURE_EXISTING_AIPROJECT_RESOURCE_ID")
     agent_id = os.environ.get("AZURE_EXISTING_AGENT_ID")
-
     if not wsid or not agent_id:
         return JSONResponse(content={
             "name": agent.name,
             "metadata": agent.metadata,
             "agentPlaygroundUrl": None
         })
-
     try:
         agent_name = agent_id.split(":")[0]
         agent_version = agent_id.split(":")[1]
@@ -422,15 +372,13 @@ async def get_chat_agent(
 async def chat(
     request: Request,
     project_client: AIProjectClient = Depends(get_project_client),
-    agent: AgentVersionObject = Depends(get_agent_version_obj),
+    agent: AgentVersionDetails = Depends(get_agent_version_obj),   # ✅
     _ = auth_dependency,
 ):
     conversation_id = request.cookies.get('conversation_id')
     agent_id = request.cookies.get('agent_id')
-
     carrier = {}
     TraceContextTextMapPropagator().inject(carrier)
-
     with tracer.start_as_current_span("chat_request"):
         async with project_client.get_openai_client() as openai_client:
             conversation = await get_or_create_conversation(
@@ -438,7 +386,6 @@ async def chat(
             )
             conversation_id = conversation.id
             agent_id = agent.id
-
     try:
         user_message = await request.json()
     except Exception as e:
@@ -451,7 +398,6 @@ async def chat(
         "Content-Type": "text/event-stream"
     }
     logger.info(f"Starting streaming response for conversation ID {conversation_id}")
-
     response = StreamingResponse(
         get_result(agent, conversation, user_message.get('message', ''), project_client, carrier),
         headers=headers
@@ -462,7 +408,7 @@ async def chat(
 
 
 async def get_result(
-    agent: AgentVersionObject,
+    agent: AgentVersionDetails,                  # ✅ was AgentVersionObject
     conversation: Conversation,
     user_message: str,
     project_client: AIProjectClient,
@@ -477,28 +423,101 @@ async def get_result(
                 response = await openai_client.responses.create(
                     conversation=conversation.id,
                     input=user_message,
-                    extra_body={"agent": AgentReference(name=agent.name, version=agent.version).as_dict()},
+                    # ✅ AgentReference removed — plain dict used instead
+                    extra_body={"agent_reference": {"name": agent.name, "version": agent.version, "type": "agent_reference"}},
                     stream=True
                 )
                 logger.info("Successfully created stream; starting to process events")
 
                 async for event in response:
+
+                    # ── Response lifecycle ────────────────────────────────────
                     if event.type == "response.created":
                         logger.info(f"Stream response created with ID: {event.response.id}")
 
+                    elif event.type == "response.in_progress":
+                        logger.info("Response in progress")
+
+                    elif event.type == "response.completed":
+                        logger.info(f"Response completed with full message: {event.response.output_text}")
+
+                    # ── Text streaming ────────────────────────────────────────
                     elif event.type == "response.output_text.delta":
                         logger.info(f"Delta: {event.delta}")
                         stream_data = {'content': event.delta, 'type': "message"}
                         yield serialize_sse_event(stream_data)
 
-                    elif event.type == "response.output_item.done" and event.item.type == "message":
-                        stream_data = await get_message_and_annotations(event.item, openai_client)
-                        stream_data['type'] = "completed_message"
+                    elif event.type == "response.output_text.done":
+                        logger.info(f"Output text done: {event.text[:80]}...")
+
+                    # ── Output item lifecycle ─────────────────────────────────
+                    elif event.type == "response.output_item.added":
+                        item_type = getattr(event.item, 'type', 'unknown')
+                        logger.info(f"Output item added: type={item_type}")
+
+                    elif event.type == "response.output_item.done":
+                        item = event.item
+                        item_type = getattr(item, 'type', 'unknown')
+
+                        if item_type == "message":
+                            stream_data = await get_message_and_annotations(item, openai_client)
+                            stream_data['type'] = "completed_message"
+                            logger.info(
+                                f"Completed message — "
+                                f"annotations: {len(stream_data.get('annotations', []))}, "
+                                f"images: {len(stream_data.get('images', []))}"
+                            )
+                            yield serialize_sse_event(stream_data)
+
+                        elif item_type == "code_interpreter_call":
+                            logger.info(
+                                f"Code interpreter call done — "
+                                f"status: {item.status}, "
+                                f"outputs: {item.outputs}, "
+                                f"container_id: {getattr(item, 'container_id', None)}"
+                            )
+
+                    # ── Content part lifecycle ────────────────────────────────
+                    elif event.type == "response.content_part.added":
+                        logger.info(f"Content part added: type={getattr(event.part, 'type', 'unknown')}")
+
+                    elif event.type == "response.content_part.done":
+                        logger.info("Content part done")
+
+                    # ── Code Interpreter execution ────────────────────────────
+                    elif event.type == "response.code_interpreter_call.in_progress":
+                        logger.info("Code Interpreter: execution started")
+                        stream_data = {'content': "Running code...", 'type': "code_logs"}
                         yield serialize_sse_event(stream_data)
 
-                    elif event.type == "response.completed":
-                        logger.info(f"Response completed with full message: {event.response.output_text}")
+                    elif event.type == "response.code_interpreter_call.interpreting":
+                        logger.info("Code Interpreter: interpreting output")
 
+                    elif event.type == "response.code_interpreter_call.completed":
+                        outputs = getattr(event, 'outputs', None)
+                        logger.info(f"Code Interpreter: completed. Outputs: {outputs}")
+
+                    elif event.type == "response.code_interpreter_call.failed":
+                        error_detail = (
+                            getattr(event, 'error', None)
+                            or getattr(event, 'last_error', None)
+                            or "Unknown error"
+                        )
+                        logger.error(f"Code Interpreter FAILED: {error_detail}")
+                        stream_data = {
+                            'content': f"[Code Interpreter error]: {error_detail}",
+                            'type': "code_logs"
+                        }
+                        yield serialize_sse_event(stream_data)
+
+                    elif event.type == "response.code_interpreter_call_code.delta":
+                        pass
+
+                    elif event.type == "response.code_interpreter_call_code.done":
+                        full_code = getattr(event, 'code', '')
+                        logger.info(f"Code Interpreter full code:\n{full_code}")
+
+                    # ── Execution logs ────────────────────────────────────────
                     elif event.type == "response.code_interpreter.logs":
                         logger.info(f"Code Interpreter logs: {event.logs}")
                         stream_data = {
@@ -506,6 +525,13 @@ async def get_result(
                             'type': "code_logs"
                         }
                         yield serialize_sse_event(stream_data)
+
+                    # ── Catch-all ─────────────────────────────────────────────
+                    else:
+                        logger.warning(
+                            f"Unhandled event type: '{event.type}' — "
+                            f"payload: {vars(event)}"
+                        )
 
             except Exception as e:
                 logger.exception(f"Exception in get_result: {e}")

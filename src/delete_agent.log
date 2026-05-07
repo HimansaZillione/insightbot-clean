@@ -1,2 +1,19 @@
 2026-02-12 15:49:25,023 [INFO] azureaiapp: Deleted agent: InsightBot-SLIIT-v5
 2026-02-18 21:01:35,289 [INFO] azureaiapp: Deleted agent: InsightBot
+2026-05-06 17:00:04,291 [INFO] azureaiapp: Deleted agent: InsightBot-SLIIT-v7
+2026-05-06 17:17:19,701 [INFO] azureaiapp: Deleted agent: InsightBot-SLIIT-v7
+2026-05-07 04:23:39,756 [INFO] azureaiapp: Deleted agent: InsightBot-SLIIT-v7
+2026-05-07 04:30:17,849 [INFO] azureaiapp: Agent not found or delete failed: DefaultAzureCredential failed to retrieve a token from the included credentials.
+Attempted credentials:
+	EnvironmentCredential: EnvironmentCredential authentication unavailable. Environment variables are not fully configured.
+Visit https://aka.ms/azsdk/python/identity/environmentcredential/troubleshoot to troubleshoot this issue.
+	ManagedIdentityCredential: ManagedIdentityCredential authentication unavailable, no response from the IMDS endpoint.
+	SharedTokenCacheCredential: SharedTokenCacheCredential authentication unavailable. No accounts were found in the cache.
+	AzureCliCredential: Timed out waiting for Azure CLI
+	AzurePowerShellCredential: Az.Account module >= 2.2.0 is not installed
+	AzureDeveloperCliCredential: {"type":"consoleMessage","timestamp":"2026-05-07T04:30:17.7870462+05:30","data":{"message":"\nERROR: fetching token: AADSTS700082: The refresh token has expired due to inactivity. The token was issued on 2026-01-01T05:05:58.5102087Z and was inactive for 90.00:00:00. Trace ID: 4c8dc29d-8066-4c99-a364-b6aca19a0100 Correlation ID: f28f1890-2f21-4bc5-9a44-fee5f89bad11 Timestamp: 2026-05-06 23:00:19Z\nSuggestion: reauthentication required, run `azd auth login --scope https://ai.azure.com/.default` to acquire a new token.\n"}}
+
+To mitigate this issue, please refer to the troubleshooting guidelines here at https://aka.ms/azsdk/python/identity/defaultazurecredential/troubleshoot.
+2026-05-07 07:51:23,339 [INFO] azureaiapp: Agent not found or delete failed: (not_found) Agent not found [Request ID: 7280dc45ec92affe2d8a6ee1dfff2b86]
+Code: not_found
+Message: Agent not found [Request ID: 7280dc45ec92affe2d8a6ee1dfff2b86]

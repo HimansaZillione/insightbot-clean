@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use("Agg")  # ← headless backend, no display needed
 import matplotlib.pyplot as plt
 
 # Data for the pie chart
@@ -15,10 +17,15 @@ graduates = [107, 17, 48, 13, 14, 23, 15]
 
 # Creating the pie chart
 plt.figure(figsize=(8, 8))
-plt.pie(graduates, labels=specializations, autopct='%1.1f%%', startangle=140, colors=plt.cm.Paired.colors)
-
-# Title of the chart
+plt.pie(
+    graduates,
+    labels=specializations,
+    autopct='%1.1f%%',
+    startangle=140,
+    colors=plt.cm.Paired.colors
+)
 plt.title("IT Graduates by Specialization (2022)")
 
-# Displaying the chart
-plt.show()
+# Save to file — never use plt.show() in this environment
+plt.savefig("chart.png", bbox_inches="tight")
+plt.close()
