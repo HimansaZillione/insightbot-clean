@@ -17,3 +17,24 @@ To mitigate this issue, please refer to the troubleshooting guidelines here at h
 2026-05-07 07:51:23,339 [INFO] azureaiapp: Agent not found or delete failed: (not_found) Agent not found [Request ID: 7280dc45ec92affe2d8a6ee1dfff2b86]
 Code: not_found
 Message: Agent not found [Request ID: 7280dc45ec92affe2d8a6ee1dfff2b86]
+2026-05-07 10:54:28,136 [INFO] azureaiapp: Agent not found or delete failed: (Tenant provided in token does not match resource token) Token tenant 6b4abc02-e40b-4d50-9fef-944a68196da3 does not match resource tenant.
+Code: Tenant provided in token does not match resource token
+Message: Token tenant 6b4abc02-e40b-4d50-9fef-944a68196da3 does not match resource tenant.
+2026-05-07 11:00:40,236 [INFO] azureaiapp: Agent not found or delete failed: (Tenant provided in token does not match resource token) Token tenant 6b4abc02-e40b-4d50-9fef-944a68196da3 does not match resource tenant.
+Code: Tenant provided in token does not match resource token
+Message: Token tenant 6b4abc02-e40b-4d50-9fef-944a68196da3 does not match resource tenant.
+2026-05-07 11:05:46,312 [INFO] azureaiapp: Deleted agent: InsightBot
+2026-05-07 11:10:00,211 [INFO] azureaiapp: Agent not found or delete failed: (not_found) Agent not found [Request ID: 436cf1a599de0ebc5c8d936cbc4bbf16]
+Code: not_found
+Message: Agent not found [Request ID: 436cf1a599de0ebc5c8d936cbc4bbf16]
+2026-05-07 11:32:35,365 [INFO] azureaiapp: Deleted agent: InsightBot
+2026-05-07 11:37:08,100 [INFO] azureaiapp: Deleted agent: InsightBot
+2026-05-07 11:46:33,080 [INFO] azureaiapp: Deleted agent: InsightBot
+2026-05-07 11:48:50,635 [INFO] azureaiapp: Agent not found or delete failed: (not_found) Agent not found [Request ID: 22e05b7744c5c4891a1da5d0f86adf4f]
+Code: not_found
+Message: Agent not found [Request ID: 22e05b7744c5c4891a1da5d0f86adf4f]
+2026-05-07 12:05:35,149 [INFO] azureaiapp: Deleted agent: InsightBot
+2026-05-07 12:08:13,277 [INFO] azureaiapp: Deleted agent: InsightBot
+2026-05-07 12:10:30,777 [INFO] azureaiapp: Deleted agent: InsightBot
+2026-05-07 12:18:54,358 [INFO] azureaiapp: Deleted agent: InsightBot
+2026-05-07 13:53:03,792 [INFO] azureaiapp: Deleted agent: InsightBot
