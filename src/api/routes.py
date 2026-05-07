@@ -252,28 +252,44 @@ async def index(request: Request, _ = auth_dependency):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+# ✅ Replace with this (dual container)
 @router.get("/api/document/{filename:path}")
 async def get_document(filename: str, request: Request, _=auth_dependency):
     account_url = os.environ.get("AZURE_STORAGE_ACCOUNT_URL")
-    container_name = os.environ.get("AZURE_STORAGE_CONTAINER_NAME")
     account_name = os.environ.get("AZURE_STORAGE_ACCOUNT_NAME")
+    container_names = [
+        c for c in [
+            os.environ.get("AZURE_STORAGE_CONTAINER_NAME"),
+            os.environ.get("AZURE_STORAGE_STATS_CONTAINER_NAME"),
+        ] if c
+    ]
 
-    if not all([account_url, container_name, account_name]):
+    if not all([account_url, account_name, container_names]):
         raise HTTPException(status_code=500, detail="Blob storage env vars not configured")
 
     try:
         async with DefaultAzureCredential() as credential:
             async with BlobServiceClient(account_url=account_url.rstrip('/'), credential=credential) as svc:
-                container_client = svc.get_container_client(container_name)
+
                 actual_blob_name = None
-                async for blob in container_client.list_blobs():
-                    if blob.name == filename or blob.name.endswith(f"/{filename}"):
-                        actual_blob_name = blob.name
+                resolved_container = None
+
+                for container_name in container_names:
+                    container_client = svc.get_container_client(container_name)
+                    async for blob in container_client.list_blobs():
+                        if blob.name == filename or blob.name.endswith(f"/{filename}"):
+                            actual_blob_name = blob.name
+                            resolved_container = container_name
+                            break
+                    if actual_blob_name:
                         break
+
                 if not actual_blob_name:
-                    logger.warning(f"Blob not found: '{filename}'")
+                    logger.warning(f"Blob not found in any container: '{filename}'")
                     raise HTTPException(status_code=404, detail=f"Document not found: {filename}")
-                logger.info(f"Resolved '{filename}' -> '{actual_blob_name}'")
+
+                logger.info(f"Resolved '{filename}' -> '{resolved_container}/{actual_blob_name}'")
+
                 now = datetime.now(timezone.utc)
                 delegation_key = await svc.get_user_delegation_key(
                     key_start_time=now,
@@ -281,15 +297,23 @@ async def get_document(filename: str, request: Request, _=auth_dependency):
                 )
                 sas_token = generate_blob_sas(
                     account_name=account_name,
-                    container_name=container_name,
+                    container_name=resolved_container,
                     blob_name=actual_blob_name,
                     user_delegation_key=delegation_key,
                     permission=BlobSasPermissions(read=True),
                     expiry=now + timedelta(minutes=15),
                 )
-                blob_url = f"{account_url.rstrip('/')}/{container_name}/{quote(actual_blob_name)}?{sas_token}"
-                logger.info(f"SAS redirect: {actual_blob_name}")
+
+                office_extensions = ('.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx')
+                blob_url = f"{account_url.rstrip('/')}/{resolved_container}/{quote(actual_blob_name)}?{sas_token}"
+
+                if actual_blob_name.lower().endswith(office_extensions):
+                    viewer_url = f"https://view.officeapps.live.com/op/view.aspx?src={quote(blob_url, safe='')}"
+                    return RedirectResponse(url=viewer_url, status_code=302)
+
+                logger.info(f"SAS redirect: {resolved_container}/{actual_blob_name}")
                 return RedirectResponse(url=blob_url, status_code=302)
+
     except HTTPException:
         raise
     except Exception as e:
