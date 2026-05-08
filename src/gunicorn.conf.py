@@ -138,9 +138,10 @@ async def create_agent(ai_project: AIProjectClient,
             logger.info(f"Uploaded Code_inter.py, file ID: {uploaded_file.id}")
 
             timeout_start = asyncio.get_event_loop().time()
-            while asyncio.get_event_loop().time() - timeout_start < 120:
+            while asyncio.get_event_loop().time() - timeout_start < 200:
                 file_status = await openai_client.files.retrieve(uploaded_file.id)
-                if file_status.status == 'completed':
+                logger.info(f"File status: {file_status.status}")  # ← add this
+                if file_status.status in ('completed', 'processed'):
                     logger.info("File processing completed")
                     file_ids = [uploaded_file.id]
                     break
@@ -155,7 +156,7 @@ async def create_agent(ai_project: AIProjectClient,
 
     # ✅ Correct initialization using AutoCodeInterpreterToolParam
     code_interpreter = CodeInterpreterTool(
-        container=AutoCodeInterpreterToolParam(file_ids=file_ids)
+        container=AutoCodeInterpreterToolParam(file_ids=[])
     )
 
     tool = await get_available_tool(ai_project, openai_client, creds)
@@ -178,6 +179,11 @@ async def create_agent(ai_project: AIProjectClient,
                 USE CODE INTERPRETER ONLY when the user explicitly requests:
                 - Calculations, data analysis, chart/graph generation, or file processing.
                 - Never invoke it for document lookups or factual retrieval — use AI Search instead.
+                CODE INTERPRETER FILE NOTE:
+                - The attached file (Code_inter.py) is a CODE TEMPLATE only — it is NOT a data source.
+                - NEVER read or analyze Code_inter.py for data or statistics.
+                - NEVER treat Code_inter.py as a knowledge source.
+                - It exists ONLY to show you the correct coding pattern to follow when generating charts.
                 IMPORTANT — When generating charts or visualizations:
                 - Always add: import matplotlib; matplotlib.use("Agg") before importing pyplot
                 - Always save using: plt.savefig("chart.png", bbox_inches="tight")

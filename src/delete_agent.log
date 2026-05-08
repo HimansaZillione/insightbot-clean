@@ -17,3 +17,9 @@ To mitigate this issue, please refer to the troubleshooting guidelines here at h
 2026-05-07 07:51:23,339 [INFO] azureaiapp: Agent not found or delete failed: (not_found) Agent not found [Request ID: 7280dc45ec92affe2d8a6ee1dfff2b86]
 Code: not_found
 Message: Agent not found [Request ID: 7280dc45ec92affe2d8a6ee1dfff2b86]
+2026-05-07 15:33:53,905 [INFO] azureaiapp: Deleted agent: InsightBot-SLIIT-v7
+2026-05-07 15:45:52,978 [INFO] azureaiapp: Deleted agent: Scholastica
+2026-05-07 15:47:33,772 [INFO] azureaiapp: Agent not found or delete failed: (not_found) Agent not found [Request ID: df57e7b24c42ed898c1626452b4587c2]
+Code: not_found
+Message: Agent not found [Request ID: df57e7b24c42ed898c1626452b4587c2]
+2026-05-07 15:51:52,247 [INFO] azureaiapp: Deleted agent: Scholastica
