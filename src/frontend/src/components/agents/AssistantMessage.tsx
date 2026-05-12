@@ -42,7 +42,9 @@ export function AssistantMessage({
             <Button
               appearance="subtle"
               icon={<DeleteIcon />}
-              onClick={() => void onDelete(message.id)}
+              onClick={() => {
+                void onDelete(message.id);
+              }}
             />
           )}
         </span>
@@ -60,7 +62,6 @@ export function AssistantMessage({
                 {uniqueSources.map((annotation, i) => (
                   <div key={i} className={styles.citationItem}>
                     <span className={styles.citationNumber}>[{i + 1}]</span>
-
                     {annotation.url ? (
                       // Clickable link — opens the doc via the backend SAS proxy
                       <a
@@ -83,7 +84,6 @@ export function AssistantMessage({
               </div>
             </div>
           )}
-
           {showUsageInfo && message.usageInfo && (
             <UsageInfo info={message.usageInfo} duration={message.duration} />
           )}

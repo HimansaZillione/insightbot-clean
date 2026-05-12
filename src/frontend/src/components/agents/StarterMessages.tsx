@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Button } from "@fluentui/react-components";
+import { Body1, Subtitle1, Button } from "@fluentui/react-components";
 import { AgentIcon } from "./AgentIcon";
 import styles from "./StarterMessages.module.css";
 
@@ -16,40 +16,28 @@ export function StarterMessages({
   agentDescription,
   onPromptClick,
 }: IStarterMessageProps): ReactNode {
+  // Default starter prompts for demonstration
   const defaultStarterPrompts = [
-    "What are the academic regulations?",
-    "How do I apply for medical leave?",
-    "Explain the credit transfer process",
-    "What are my graduation requirements?",
+    "Summarize the last team meeting",
+    "What was decided in the board meeting on [date]?",
+    "Find all action items assigned to me",
+    "Which meetings mentioned the project budget?",
   ];
 
   return (
     <div className={styles.zeroprompt}>
       <div className={styles.content}>
         <AgentIcon
-          alt={agentName ?? "BOT-SLIIT"}
+          alt={agentName ?? "Agent"}
           iconClassName={styles.emptyStateAgentIcon}
           iconName={agentLogo}
         />
-
-        <h2 className={styles.welcome}>
-          {agentName
-            ? `Hello! I'm ${agentName}`
-            : "How can I help you today?"}
-        </h2>
-
-        {agentDescription ? (
-          <p className={styles.caption}>{agentDescription}</p>
-        ) : (
-          <p className={styles.caption}>
-            Ask me anything about SLIIT academic policies, regulations,
-            and procedures. I'll do my best to assist you.
-          </p>
+        <Subtitle1 className={styles.welcome}>
+          {agentName ? `Hello! I'm ${agentName}` : "Hello! How can I help you today?"}
+        </Subtitle1>
+        {agentDescription && (
+          <Body1 className={styles.caption}>{agentDescription}</Body1>
         )}
-
-        <div className={styles.notice}>
-          ⚡ All interactions logged · verify with Academic Affairs Division
-        </div>
       </div>
 
       {onPromptClick && (
@@ -60,7 +48,7 @@ export function StarterMessages({
               appearance="subtle"
               onClick={() => onPromptClick(prompt)}
             >
-              {prompt}
+              <Body1>{prompt}</Body1>
             </Button>
           ))}
         </div>

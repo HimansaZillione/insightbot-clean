@@ -1,28 +1,6 @@
-/* ═══════════════════════════════════════════════════════
-   BOT-SLIIT Theme — AgentPreview
-   Background image + glass-morphism overlays
-   ═══════════════════════════════════════════════════════ */
-
-@import url('https://fonts.googleapis.com/css2?family=Albert+Sans:wght@800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
-
-/* ── Fluent UI token overrides (scoped to container) ── */
 .container {
-  --colorNeutralBackground1: rgba(4, 14, 42, 0.40);
-  --colorNeutralBackground2: rgba(7, 30, 70, 0.35);
-  --colorNeutralBackground3: rgba(10, 22, 55, 0.30);
-  --colorNeutralBackground4: rgba(20, 40, 80, 0.40);
-  --colorNeutralForeground1: #ffffff;
-  --colorNeutralForeground2: rgba(255, 255, 255, 0.78);
-  --colorNeutralForeground3: rgba(255, 255, 255, 0.48);
-  --colorNeutralForegroundOnBrand: #04021F;
-  --colorNeutralStroke1: rgba(255, 255, 255, 0.10);
-  --colorNeutralStroke2: rgba(255, 255, 255, 0.07);
-  --colorBrandForeground1: #FFD985;
-  --colorBrandForeground2: #ff9f43;
-  --colorNeutralForegroundDisabled: rgba(255, 255, 255, 0.28);
-  --colorCompoundBrandStroke: rgba(255, 159, 67, 0.55);
-
   position: relative;
+
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -30,39 +8,8 @@
   width: 100%;
   max-width: 100%;
   height: 100vh;
-
-  font-family: 'Space Grotesk', system-ui, sans-serif;
-  color: #ffffff;
-
-  /*
-   * Mirror the HTML template exactly:
-   * dark overlay gradient ON TOP of the ai-bg.png image
-   * Try the most common static asset path for this Azure template.
-   * Fallback solid colour kicks in if the image 404s.
-   */
-  background-color: #060e24;
-  background-image:
-    linear-gradient(120deg, rgba(4, 14, 42, 0.82), rgba(7, 71, 120, 0.62)),
-    url("/static/assets/template-images/ai-bg.jpg");
-  background-repeat: no-repeat, no-repeat;
-  background-size: cover, cover;
-  background-position: left center, left center;
-  background-attachment: fixed, fixed;
 }
 
-/* ── Halftone ambient glow ── */
-.container::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 18% 48%, rgba(65, 195, 255, 0.16), transparent 42%),
-    radial-gradient(circle at 82% 12%, rgba(255, 159, 67, 0.09), transparent 40%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* ── Top bar ── */
 .topBar {
   display: flex;
   flex-shrink: 0;
@@ -72,14 +19,7 @@
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
-  padding: 14px 28px;
-
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(4, 12, 36, 0.48);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  position: relative;
-  z-index: 10;
+  padding: 16px 24px;
 }
 
 .leftSection {
@@ -88,20 +28,20 @@
   flex: 1;
   gap: 16px;
   align-items: center;
+
   min-width: 0;
 }
 
 .rightSection {
   display: flex;
   flex-shrink: 0;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
 }
 
-/* ── Agent icon + name ── */
 .agentIconContainer {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -109,105 +49,31 @@
   flex-shrink: 0;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 217, 133, 0.30);
-  box-shadow: 0 0 10px rgba(255, 179, 71, 0.18);
 }
 
 .agentIcon.newAgent {
-  background-color: rgba(255, 255, 255, 0.10);
+  background-color: var(--colorNeutralForegroundDisabled);
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .agentName {
   overflow: hidden;
-  font-family: 'Albert Sans', 'Space Grotesk', system-ui, sans-serif;
-  font-weight: 800;
-  font-size: 15px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #d6e0ff;
 }
 
 .agentName.newAgent {
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--colorNeutralForegroundDisabled);
 }
 
-/* ── Live pulse badge ── */
-.liveBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 179, 71, 0.25);
-  padding: 6px 12px;
-  border-radius: 999px;
-  box-shadow: 0 0 16px rgba(255, 179, 71, 0.16);
-}
-
-.liveBadge span {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #FFD985;
-}
-
-.livePulse {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ff9f43;
-  box-shadow: 0 0 0 5px rgba(255, 159, 67, 0.18);
-  animation: pulse 1.6s infinite;
-}
-
-@keyframes pulse {
-  0%   { transform: scale(0.9); opacity: 0.9; }
-  70%  { transform: scale(1.25); opacity: 0.35; }
-  100% { transform: scale(0.9); opacity: 0.9; }
-}
-
-/* ── Nav chips (Contact / About us) ── */
-.navChip {
-  padding: 8px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.82);
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 600;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.navChip:hover {
-  border-color: rgba(255, 217, 133, 0.50);
-  background: rgba(255, 217, 133, 0.07);
-  color: #FFD985;
-}
-
-/* New Chat & More buttons */
-.rightSection button {
-  color: rgba(255, 255, 255, 0.78) !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
-}
-.rightSection button:hover {
-  color: #FFD985 !important;
-  background: rgba(255, 217, 133, 0.07) !important;
-  border-color: rgba(255, 217, 133, 0.35) !important;
-}
-
-/* ── Main content grid ── */
 .content {
   position: relative;
+
   overflow: hidden;
   display: grid;
-  grid-template-columns: 1fr minmax(min(580px, 100%), 50%) 1fr;
+  grid-template-columns: 1fr minmax(min(500px, 100%), 50%) 1fr;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
 
@@ -215,25 +81,20 @@
   width: 100%;
   height: 100%;
   padding-bottom: 12px;
-  z-index: 1;
 }
 
-/* ── Built-with badge ── */
 .builtWithBadge {
   position: absolute;
   bottom: 24px;
   left: 24px;
   z-index: 10;
-  opacity: 0.55;
-  transition: opacity 0.2s;
-}
-.builtWithBadge:hover { opacity: 1; }
 
-@media (width <= 768px) {
-  .builtWithBadge { display: none; }
+  /* No design yet for how to handle the badge on smaller screens, hide it for now */
+  @media (width <= 768px) {
+    display: none;
+  }
 }
 
-/* ── Chatbot column ── */
 .chatbot {
   overflow: hidden;
   display: flex;
@@ -246,46 +107,26 @@
   height: 100%;
 }
 
-/* ── Empty state ── */
 .emptyChatContainer {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   align-items: center;
-  padding: 32px 24px 16px;
-  text-align: center;
 }
 
-.emptyStateAgentIcon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  margin-bottom: 8px;
-  border: 1px solid rgba(255, 217, 133, 0.28);
-  box-shadow:
-    0 0 0 8px rgba(255, 159, 67, 0.06),
-    0 0 22px rgba(255, 159, 67, 0.14);
-}
-
-.content > .agentName {
-  margin-bottom: 8px;
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 13px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-/* ── Wave animation container ── */
 .wavesContainer {
   pointer-events: none;
+
   position: absolute;
   z-index: 0;
   bottom: 0;
   left: 0;
+
   overflow: hidden;
+
   width: 100%;
   height: 300px;
   max-height: 100%;
+
   animation: waves-fade-in 1s ease-in-out;
 }
 
@@ -295,27 +136,44 @@
 }
 
 @keyframes waves-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
-/* ── Menu ── */
+/* Legacy styles kept for compatibility */
+.emptyStateAgentIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.content > .agentName {
+  margin-bottom: 8px;
+}
+
 .menuButtonContainer {
   position: relative;
   display: inline-block;
 }
 
-.menuButton { position: relative; }
+.menuButton {
+  position: relative;
+}
 
 .menu {
   position: absolute;
   top: 100%;
   right: 0;
-  background: rgba(6, 16, 44, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.50);
-  backdrop-filter: blur(16px);
+  background-color: var(--colorNeutralBackground1);
+  border: 1px solid var(--colorNeutralStroke1);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 1000;
   min-width: 200px;
   display: none;
@@ -329,18 +187,13 @@
 .menuItem {
   display: flex;
   align-items: center;
-  padding: 10px 16px;
+  padding: 8px 16px;
   cursor: pointer;
   gap: 8px;
-  color: rgba(255, 255, 255, 0.80);
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 14px;
-  border-radius: 8px;
-  transition: background 0.15s;
 }
+
 .menuItem:hover {
-  background: rgba(255, 217, 133, 0.07);
-  color: #FFD985;
+  background-color: var(--colorNeutralBackground2);
 }
 
 .externalLink {
@@ -351,9 +204,13 @@
   width: 100%;
 }
 
-/* ── Responsive ── */
-@media (max-width: 900px) {
-  .topBar { flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
-  .content { grid-template-columns: 1fr; }
-  .chatbot { grid-column: 1; }
+.emptyChatContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+
+  padding: 24px;
+
+  text-align: center;
 }

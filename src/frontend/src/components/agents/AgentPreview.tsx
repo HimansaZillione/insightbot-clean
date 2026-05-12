@@ -1,9 +1,10 @@
 import { ReactNode, useState, useMemo, useEffect } from "react";
 import {
   Body1,
-  Button,  
+  Button,
+  Caption1,
   Spinner,
- 
+  Title3,
 } from "@fluentui/react-components";
 import { ChatRegular, MoreHorizontalRegular } from "@fluentui/react-icons";
 import clsx from "clsx";
@@ -12,7 +13,7 @@ import { AgentIcon } from "./AgentIcon";
 import { SettingsPanel } from "../core/SettingsPanel";
 import { AgentPreviewChatBot } from "./AgentPreviewChatBot";
 import { MenuButton } from "../core/MenuButton/MenuButton";
-import { IChatItem, IGeneratedImage } from "./chatbot/types";
+import { IChatItem } from "./chatbot/types";
 import { Waves } from "./Waves";
 import { BuiltWithBadge } from "./BuiltWithBadge";
 
@@ -50,6 +51,10 @@ interface IAnnotation {
   index: number;
 }
 
+/** Strip "for SLIIT" (and any trailing whitespace) from the displayed agent name */
+const toDisplayName = (name: string | undefined): string =>
+  (name ?? "").replace(/\s*for\s+SLIIT\b/gi, "").trim();
+
 const preprocessContent = (
   content: string,
   annotations?: IAnnotation[]
@@ -58,24 +63,19 @@ const preprocessContent = (
     return content;
   }
 
-  // Process annotations in descending order index, ascending label, remove duplicates
   let processedContent = content;
   annotations
     .slice()
     .sort((a, b) => {
-      // Primary sort: descending index
       if (b.index !== a.index) {
         return b.index - a.index;
       }
-      // Secondary sort: descending label (as tiebreaker)
       return b.label.localeCompare(a.label);
     })
-    .filter((annotation, index, self) => 
+    .filter((annotation, index, self) =>
       index === self.findIndex(a => a.label === annotation.label && a.index === annotation.index))
     .forEach((annotation) => {
-      // Only process if the index is valid and within bounds
       if (annotation.index >= 0 && annotation.index <= processedContent.length) {
-        // If there's a label, show it (wrapped in brackets), inserting after the index
         processedContent =
           processedContent.slice(0, annotation.index + 1) +
           ` [${annotation.label}]` +
@@ -86,14 +86,12 @@ const preprocessContent = (
 };
 
 const formatTimestampToLocalTime = (timestampStr: string): string => {
-  // Convert timestamp string to local timezone with specific format
   let localTime = new Date().toLocaleString();
   if (timestampStr) {
     try {
-      // Parse timestamp (assuming it's a Unix timestamp in seconds as string, could be float)
       const timestamp = parseFloat(timestampStr);
       if (!isNaN(timestamp)) {
-        const date = new Date(timestamp * 1000); // Convert to milliseconds
+        const date = new Date(timestamp * 1000);
         localTime = date.toLocaleDateString('en-US', {
           month: '2-digit',
           day: '2-digit',
@@ -117,13 +115,14 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
   const [isResponding, setIsResponding] = useState(false);
   const [isLoadingChatHistory, setIsLoadingChatHistory] = useState(true);
 
+  // Cleaned name — never shows "SLIIT" in the UI
+  const displayName = toDisplayName(agentDetails.name);
+
   const loadChatHistory = async () => {
     try {
       const response = await fetch("/chat/history", {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
       });
 
@@ -133,7 +132,6 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
           content: string;
           created_at: string;
           annotations?: IAnnotation[];
-          images?: IGeneratedImage[]; // ← Handle images from history
         }> = await response.json();
 
         const historyMessages: IChatItem[] = [];
@@ -141,7 +139,6 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
 
         for (const entry of reversedResponse) {
           const localTime = formatTimestampToLocalTime(entry.created_at);
-
           if (entry.role === "user") {
             historyMessages.push({
               id: crypto.randomUUID(),
@@ -156,8 +153,6 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
               role: "assistant",
               isAnswer: true,
               more: { time: localTime },
-              annotations: entry.annotations,
-              images: entry.images || [], // ← Save images from history
             });
           }
         }
@@ -219,19 +214,15 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
     setMessageList((prev) => [...prev, userMessage]);
 
     try {
-      const postData = { message: message };
-
       setIsResponding(true);
       const response = await fetch("/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(postData),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
         credentials: "include",
       });
 
-      //console.log("[ChatClient] Response status:", response.status, response.statusText);
+      console.log("[ChatClient] Response status:", response.status, response.statusText);
 
       if (!response.ok) {
         console.error("[ChatClient] Response not OK:", response.status, response.statusText);
@@ -242,7 +233,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
         throw new Error("ReadableStream not supported or response.body is null");
       }
 
-      //console.log("[ChatClient] Starting to handle streaming response...");
+      console.log("[ChatClient] Starting to handle streaming response...");
       handleMessages(response.body);
     } catch (error: any) {
       setIsResponding(false);
@@ -254,7 +245,6 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
     }
   };
 
-  // ─── ORIGINAL handleMessages — restored exactly ───────────────────────────
   const handleMessages = (stream: ReadableStream<Uint8Array<ArrayBufferLike>>) => {
     let chatItem: IChatItem | null = null;
     let accumulatedContent = "";
@@ -275,16 +265,12 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
         }
 
         const textChunk = decoder.decode(value, { stream: true });
-        console.log("[ChatClient] Raw chunk from stream:", textChunk);
-
         buffer += textChunk;
         let boundary = buffer.indexOf("\n");
 
         while (boundary !== -1) {
           const chunk = buffer.slice(0, boundary).trim();
           buffer = buffer.slice(boundary + 1);
-
-          console.log("[ChatClient] SSE line:", chunk);
 
           if (chunk.startsWith("data: ")) {
             const jsonStr = chunk.slice(6);
@@ -297,10 +283,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
               continue;
             }
 
-            console.log("[ChatClient] Parsed SSE event:", data);
-
             if (data.type === "stream_end") {
-              console.log("[ChatClient] Stream end marker received.");
               setIsResponding(false);
               break;
             } else if (data.type === "thread_run") {
@@ -311,9 +294,6 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
               }
 
               if (data.type === "completed_message") {
-                // ═══════════════════════════════════════════════════════════
-                // COMPLETED MESSAGE - SAVE IMAGES HERE
-                // ═══════════════════════════════════════════════════════════
                 if (hasReceivedCompletedMessage) {
                   chatItem = createAssistantMessageDiv();
                   accumulatedContent = data.content;
@@ -324,50 +304,20 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
                   annotations = data.annotations || [];
                   hasReceivedCompletedMessage = true;
                 }
-
-                // ═══════════════════════════════════════════════════════════
-                // CRITICAL: Save BOTH annotations AND images
-                // ═══════════════════════════════════════════════════════════
-                if (chatItem) {
-                  chatItem.annotations = annotations;
-                  chatItem.images = data.images || []; // ← THIS IS CRITICAL
-
-                  if (chatItem.images && chatItem.images.length > 0) {
-                    // image debug logging omitted
-                  }
-                }
-
                 isStreaming = false;
                 setIsResponding(false);
-
-                // Pass images to appendAssistantMessage
-                appendAssistantMessage(
-                  chatItem,
-                  accumulatedContent,
-                  isStreaming,
-                  annotations,
-                  data.images || [] // ← PASS IMAGES HERE
-                );
               } else {
-                // Streaming content
                 if (hasReceivedCompletedMessage) {
                   chatItem = createAssistantMessageDiv();
                   annotations = [];
                   accumulatedContent = "";
                   hasReceivedCompletedMessage = false;
                 }
-
                 accumulatedContent += data.content;
                 isStreaming = true;
-
-                appendAssistantMessage(
-                  chatItem,
-                  accumulatedContent,
-                  isStreaming,
-                  annotations,
-                  [] // No images during streaming
-                );
               }
+
+              appendAssistantMessage(chatItem, accumulatedContent, isStreaming, annotations);
             }
           }
 
@@ -380,10 +330,9 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
       console.error("[ChatClient] Stream reading failed:", error);
     });
   };
-  // ─────────────────────────────────────────────────────────────────────────
 
   const createAssistantMessageDiv: () => IChatItem = () => {
-    var item = {
+    const item = {
       id: crypto.randomUUID(),
       content: "",
       isAnswer: true,
@@ -397,30 +346,13 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
     chatItem: IChatItem,
     accumulatedContent: string,
     isStreaming: boolean,
-    annotations?: IAnnotation[],
-    images?: IGeneratedImage[] // ← MUST HAVE THIS PARAMETER
+    annotations?: IAnnotation[]
   ) => {
     try {
       const preprocessedContent = preprocessContent(accumulatedContent, annotations);
-      let htmlContent = preprocessedContent;
+      chatItem.content = preprocessedContent;
+      setMessageList((prev) => [...prev.slice(0, -1), { ...chatItem }]);
 
-      if (!chatItem) {
-        throw new Error("Message content div not found in the template.");
-      }
-
-      // ═══════════════════════════════════════════════════════════
-      // CRITICAL: Save content, annotations, AND images
-      // ═══════════════════════════════════════════════════════════
-      chatItem.content = htmlContent;
-      chatItem.annotations = annotations || [];
-      chatItem.images = images || []; // ← THIS IS CRITICAL
-
-      // Update the message list
-      setMessageList((prev) => {
-        return [...prev.slice(0, -1), { ...chatItem }];
-      });
-
-      // Scroll to bottom if not streaming
       if (!isStreaming) {
         requestAnimationFrame(() => {
           const lastChild = document.getElementById(`msg-${chatItem.id}`);
@@ -444,31 +376,43 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
     {
       key: "settings",
       children: "Settings",
-      onClick: () => {
-        setIsSettingsPanelOpen(true);
-      },
+      onClick: () => { setIsSettingsPanelOpen(true); },
     },
     {
-      key: "Need Help?",
+      key: "terms",
       children: (
         <a
           className={styles.externalLink}
-          href="https://zillione-prod.powerappsportals.com/"
+          href="https://aka.ms/aistudio/terms"
           target="_blank"
           rel="noopener noreferrer"
         >
-          Need Help?
+          Terms of Use
         </a>
       ),
+    },
+    {
+      key: "privacy",
+      children: (
+        <a
+          className={styles.externalLink}
+          href="https://go.microsoft.com/fwlink/?linkid=521839"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Privacy
+        </a>
+      ),
+    },
+    {
+      key: "feedback",
+      children: "Send Feedback",
+      onClick: () => { alert("Thank you for your feedback!"); },
     },
   ];
 
   const chatContext = useMemo(
-    () => ({
-      messageList,
-      isResponding,
-      onSend,
-    }),
+    () => ({ messageList, isResponding, onSend }),
     [messageList, isResponding]
   );
 
@@ -476,67 +420,49 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
 
   return (
     <div className={styles.container}>
-      {/* Animated wave background — paused when chat is active */}
       <div className={styles.wavesContainer}>
         <Waves paused={!isEmpty} />
       </div>
 
       {/* ── Top bar ── */}
       <div className={styles.topBar}>
-        {/* Left: SLIIT logo + live badge + agent name */}
         <div className={styles.leftSection}>
-          <div className={styles.agentIconContainer}>
-            {/* SLIIT crest */}
-            <img
-              src="/static/assets/template-images/SLIIT-UNI-LOGO.png"
-              alt="SLIIT"
-              style={{
-                height: 36,
-                width: "auto",
-                display: "block",
-                filter: "drop-shadow(0 0 8px rgba(0,0,0,0.30))",
-              }}
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = "none";
-              }}
-            />
-            {agentDetails.name ? (
+          {agentDetails.name ? (
+            <div className={styles.agentIconContainer}>
+              <AgentIcon
+                alt=""
+                iconClassName={styles.agentIcon}
+                iconName={agentDetails.metadata?.logo}
+              />
               <Body1 as="h1" className={styles.agentName}>
-                {agentDetails.name}
+                {displayName}
               </Body1>
-            ) : (
-              <Body1
-                as="h1"
-                className={clsx(styles.agentName, styles.newAgent)}
-              >
-                BOT-SLIIT
+            </div>
+          ) : (
+            <div className={styles.agentIconContainer}>
+              <div className={clsx(styles.agentIcon, styles.newAgent)} />
+              <Body1 as="h1" className={clsx(styles.agentName, styles.newAgent)}>
+                Agent Name
               </Body1>
-            )}
-          </div>
-
-          {/* Live pulse badge */}
-          <div className={styles.liveBadge}>
-            <div className={styles.livePulse} />
-            <span>live · BOT-SLIIT</span>
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Right: nav chips + new chat + menu */}
         <div className={styles.rightSection}>
-          <button
-            className={styles.navChip}
-            type="button"
-            onClick={() => window.open("https://sliit.lk/contact", "_blank")}
+          {/* Contact and About us — same appearance as New Chat */}
+          <Button
+            appearance="subtle"
+            onClick={() => { /* TODO: navigate to contact page */ }}
           >
             Contact
-          </button>
-          <button
-            className={styles.navChip}
-            type="button"
-            onClick={() => window.open("https://sliit.lk", "_blank")}
+          </Button>
+          <Button
+            appearance="subtle"
+            onClick={() => { /* TODO: navigate to about page */ }}
           >
-            About&nbsp;us
-          </button>
+            About us
+          </Button>
+
           <Button
             appearance="subtle"
             icon={<ChatRegular aria-hidden={true} />}
@@ -570,61 +496,15 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
                     iconClassName={styles.emptyStateAgentIcon}
                     iconName={agentDetails.metadata?.logo}
                   />
-
-                  <h1
-                    style={{
-                      margin: "0 0 6px",
-                      fontFamily: "'Albert Sans', 'Space Grotesk', system-ui, sans-serif",
-                      fontWeight: 800,
-                      fontSize: "clamp(20px, 3vw, 30px)",
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "#d6e0ff",
-                      lineHeight: 1.15,
-                      textAlign: "center",
-                    }}
-                  >
-                    Academic Copilot for SLIIT
-                  </h1>
-
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 13,
-                      color: "rgba(255,255,255,0.50)",
-                      maxWidth: 440,
-                      lineHeight: 1.6,
-                      textAlign: "center",
-                    }}
-                  >
-                    Information provided for reference only. Verify decisions
-                    through the Academic Affairs Division (AA).
-                  </p>
-
-                  <div
-                    style={{
-                      marginTop: 10,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 7,
-                      padding: "6px 13px",
-                      borderRadius: 999,
-                      background: "rgba(255,255,255,0.03)",
-                      border: "1px solid rgba(255,179,71,0.18)",
-                      fontSize: 11,
-                      fontFamily: "'JetBrains Mono', monospace",
-                      color: "rgba(255,217,133,0.70)",
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    All interactions are logged for policy compliance
-                  </div>
+                  {/* Show cleaned name only — no description, no SLIIT */}
+                  <Caption1 className={styles.agentName}>
+                    {displayName}
+                  </Caption1>
+                  <Title3>How can I help you today?</Title3>
                 </div>
               )}
-
               <AgentPreviewChatBot
-                agentName={agentDetails.name}
+                agentName={displayName}
                 agentLogo={agentDetails.metadata?.logo}
                 chatContext={chatContext}
               />
@@ -632,13 +512,11 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
           )}
         </div>
 
-        {agentDetails.agentPlaygroundUrl && agentDetails.agentPlaygroundUrl.length > 0 ? (
+        {agentDetails.agentPlaygroundUrl && agentDetails.agentPlaygroundUrl.length > 0 && (
           <BuiltWithBadge
             className={styles.builtWithBadge}
             agentPlaygroundUrl={agentDetails.agentPlaygroundUrl}
           />
-        ) : (
-          <></>
         )}
       </div>
 

@@ -1,14 +1,10 @@
-/* ═══════════════════════════════════════════════════════
-   BOT-SLIIT Theme — AgentPreviewChatBot
-   Transparent/glass chat container — bg image shines through
-   ═══════════════════════════════════════════════════════ */
-
 .chatContainer {
   position: relative;
+
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 
   width: 100%;
   height: 100%;
@@ -26,169 +22,72 @@
     display: flex;
     flex: 1;
     flex-direction: column;
-    padding: 8px 12px 0;
-  }
 
-  /* Thin amber scrollbar */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 179, 71, 0.22) transparent;
-  }
-  *::-webkit-scrollbar { width: 4px; }
-  *::-webkit-scrollbar-track { background: transparent; }
-  *::-webkit-scrollbar-thumb {
-    background: rgba(255, 179, 71, 0.22);
-    border-radius: 4px;
+    padding: 8px 12px 0;
   }
 }
 
-.hasMessages { height: 100%; }
-.emptyChatContainer { height: auto; }
+/* When there are messages, make the chat fill the available space */
+.hasMessages {
+  height: 100%;
+}
+
+.emptyChatContainer {
+  height: auto;
+}
 
 .userMessage {
   padding-top: 0;
   padding-bottom: 0;
 }
-.userMessage * {
-  color: #111827 !important;
-}
 
-/* Just make the text inside the user bubble dark/black */
-.userMessage :global([class*="content"]) *,
-.userMessage :global([class*="Content"]) *,
-.userMessage :global([class*="body"]) *,
-.userMessage :global([class*="Body"]) * {
-  color: #111827 !important;
-}
-
-/* ── Chat panel — transparent glass ── */
 .copilotChatContainer {
   transform: translateY(0);
+
   display: flex;
   flex-direction: column;
   flex: 1;
 
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(5, 15, 45, 0.35);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
 
   opacity: 1;
-  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+  background-color: var(--colorNeutralBackground3);
+
+  transition:
+    opacity 0.3s ease-in-out,
+    transform 0.3s ease-in-out;
   animation: fade-in 0.3s ease-in-out;
 }
 
 @keyframes fade-in {
-  from { transform: translateY(10px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
-}
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
 
-/* ── Input area outer wrapper ── */
-.inputContainer {
-  > div:first-child > div:first-child {
-    padding: 8px 10px;
-    border: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.07);
-    background: rgba(4, 12, 36, 0.45);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-radius: 0 0 16px 16px;
-    /* Let Fluent UI handle its own internal layout */
-    box-sizing: border-box;
-    width: 100%;
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
-/* Force all intermediate Fluent UI wrappers to fill width */
-.inputContainer > div,
-.inputContainer > div > div,
-.inputContainer > div > div > div {
-  width: 100% !important;
-  box-sizing: border-box !important;
+/* Transition for empty state to messages state */
+.emptyChatContainer + div div:empty + .inputContainer,
+.emptyChatContainer + .copilotChatContainer {
+  transition:
+    opacity 0.3s ease-in-out,
+    transform 0.3s ease-in-out;
 }
 
-/* ── Text input field ── */
-.inputContainer textarea,
-.inputContainer input[type="text"],
-.inputContainer [role="textbox"] {
-  width: 100% !important;
-  box-sizing: border-box !important;
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.10) !important;
-  border-radius: 10px !important;
-  color: #ffffff !important;
-  font-family: 'Space Grotesk', sans-serif !important;
-  font-size: 14px !important;
-  min-height: 44px !important;
-  max-height: 160px !important;
-  padding: 12px 14px !important;
-  line-height: 1.5 !important;
-  resize: none !important;
-  white-space: pre-wrap !important;
-  overflow-wrap: break-word !important;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+.inputContainer {
+  /* TODO: File an issue with Fluent team to allow for a safer override of the input box styles, or figure out a better approach to customize the chat input box styles */
+  > div:first-child > div:first-child {
+    padding: 12px 12px 6px;
+    border: none;
+    background-color: var(--colorNeutralBackground3);
+  }
 }
 
-/* Fluent UI wrapper divs that sit between inputContainer and the textarea */
-.inputContainer :global([class*="textarea"]),
-.inputContainer :global([class*="TextArea"]),
-.inputContainer :global([class*="field"]),
-.inputContainer :global([class*="input"]) {
-  width: 100% !important;
-  min-height: 44px !important;
-  box-sizing: border-box !important;
-}
-
-.inputContainer textarea:focus,
-.inputContainer [role="textbox"]:focus-within {
-  border-color: rgba(255, 159, 67, 0.45) !important;
-  box-shadow: 0 0 0 3px rgba(255, 159, 67, 0.10) !important;
-  outline: none !important;
-}
-
-/*
- * ── Send button — orange gradient ──
- * Fluent UI renders this with its own generated class names.
- * We use multiple :global selectors to ensure one hits.
- * The button sits inside the ChatInput component at the end.
- */
-:global(.fui-ChatInput__sendButton),
-:global([class*="sendButton"]),
-:global([class*="ChatInput"] button:last-child),
-:global([class*="chatInput"] button:last-child),
-.inputContainer :global(button[aria-label]),
-.inputContainer :global(button:last-of-type) {
-  background: linear-gradient(135deg, #ff9f43, #ff6b35) !important;
-  color: #04021F !important;
-  border: none !important;
-  border-radius: 10px !important;
-  font-weight: 700 !important;
-  min-width: 36px !important;
-  min-height: 36px !important;
-  box-shadow: 0 0 16px rgba(255, 159, 67, 0.35) !important;
-  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
-}
-
-:global(.fui-ChatInput__sendButton):hover,
-:global([class*="sendButton"]):hover,
-:global([class*="ChatInput"] button:last-child):hover,
-.inputContainer :global(button:last-of-type):hover {
-  transform: scale(1.05) !important;
-  box-shadow: 0 0 24px rgba(255, 159, 67, 0.55) !important;
-}
-
-/* Force icon inside send button to match dark text */
-:global(.fui-ChatInput__sendButton) svg,
-:global([class*="sendButton"]) svg {
-  color: #04021F !important;
-  fill: #04021F !important;
-}
-
-/* ── Empty / zero-prompt state ── */
 .emptyState {
   display: flex;
   flex-direction: column;
@@ -197,14 +96,14 @@
   text-align: center;
   height: 100%;
   padding: 2rem;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--colorNeutralForeground2);
   flex: 1;
 }
 
 .emptyState h2 {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #d6e0ff;
+  color: var(--colorNeutralForeground1);
   margin-top: 1rem;
   margin-bottom: 0;
 }
@@ -216,8 +115,7 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 217, 133, 0.22);
+  background-color: var(--colorNeutralBackground3);
   overflow: hidden;
   margin-bottom: 1rem;
 }
@@ -227,105 +125,124 @@
   max-height: 100%;
 }
 
-/* ── Message row ── */
 .copilotChatMessage {
   display: flex;
-  margin: 0 12px;
+  margin: 0 16px;
   padding: 4px 0;
 }
 
-/* ── Citations ── */
+/* Transition for empty state to messages state */
+.emptyChatContainer .copilotChatContainer,
+.hasMessages .copilotChatContainer {
+  transition:
+    opacity 0.3s ease-in-out,
+    transform 0.3s ease-in-out;
+}
+
+/* ── Citations / Sources ── */
 .citationsContainer {
-  margin-top: 14px;
+  margin-top: 12px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.60);
 }
 
 .citationsHeader {
   font-weight: 600;
-  margin-bottom: 8px;
-  color: rgba(255, 217, 133, 0.80);
-  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  color: var(--colorNeutralForeground2);
+  font-size: 12px;
   text-transform: uppercase;
-  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .citationsList {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .citationItem {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .citationNumber {
-  font-weight: bold;
-  color: #FFD985;
+  font-weight: 600;
+  color: var(--colorBrandForeground1);
   min-width: 24px;
-  font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
 }
 
-.citationTitle { color: rgba(255, 255, 255, 0.55); }
+.citationTitle {
+  color: var(--colorNeutralForeground2);
+  font-size: 12px;
+}
 
 .citationLink {
-  color: #FFD985;
+  color: var(--colorBrandForeground1);
   text-decoration: none;
+  font-size: 12px;
   word-break: break-word;
   cursor: pointer;
   transition: color 0.15s;
 }
-.citationLink:hover { text-decoration: underline; color: #ff9f43; }
-.citationLink:visited { color: #FFD985; }
 
-/* ── Code interpreter images ── */
+.citationLink:hover {
+  text-decoration: underline;
+}
+
+.citationLink:visited {
+  color: var(--colorBrandForeground2);
+}
+
+/* ── Code Interpreter images ── */
 .imagesContainer {
-  margin-top: 16px;
+  margin-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .imageWrapper {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 10px;
-  padding: 12px;
-  transition: box-shadow 0.2s ease;
-}
-
-.imageWrapper:hover {
-  box-shadow: 0 4px 16px rgba(255, 159, 67, 0.12);
+  gap: 6px;
+  background-color: var(--colorNeutralBackground2);
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 6px;
+  padding: 8px;
 }
 
 .generatedImage {
   max-width: 100%;
   height: auto;
-  border-radius: 6px;
+  border-radius: 4px;
   display: block;
   min-width: 200px;
   cursor: pointer;
 }
 
-.generatedImage:hover { opacity: 0.92; }
+.generatedImage:hover {
+  opacity: 0.9;
+}
 
 .imageCaption {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.32);
+  color: var(--colorNeutralForeground3);
   text-align: center;
-  font-family: 'JetBrains Mono', monospace;
   word-break: break-all;
 }
 
 @media (max-width: 768px) {
-  .imagesContainer { margin-top: 12px; }
-  .imageWrapper { padding: 8px; }
-  .generatedImage { min-width: 150px; }
+  .imagesContainer {
+    margin-top: 8px;
+  }
+
+  .imageWrapper {
+    padding: 6px;
+  }
+
+  .generatedImage {
+    min-width: 150px;
+  }
 }

@@ -11,6 +11,7 @@ Here's the full summary of what we have:
 | `main` | `v1.0-single-container-ui-changes` | Initial push | — |
 | `main` | `v1.1-single-container-ui-changes-fixed-2.1.0` | Single container + UI changes + azure-ai-projects 2.1.0 fixes | ✅ Client tenant production |
 | `feature/dual-container-ui-changes` | `v1.2-dual-container-ui-changes-fixed-2.1.0` | Dual container + UI changes + azure-ai-projects 2.1.0 fixes | ✅ Internal use |
+| `feature/internal-dual-container-no-ui-changes` | `v1.3-internal-dual-container-no-ui-changes` | Dual container + reverted UI to Fluent default + citation & image rendering preserved | ✅ Internal use |
 
 ---
 
@@ -25,6 +26,15 @@ Here's the full summary of what we have:
 **`feature/dual-container-ui-changes` / `v1.2`:**
 - Dual blob container logic in `routes.py`
 - UI changes — image rendering in `AssistantMessage.tsx`
+- `azure-ai-projects==2.1.0` fixes
+- `SEARCH_CONNECTION_ID` for internal/SLIIT tenant
+
+**`feature/internal-dual-container-no-ui-changes` / `v1.3`:**
+- Dual blob container logic in `routes.py`
+- UI reverted to default Fluent UI theme (no custom dark styling)
+- Citation rendering preserved — deduplication, SAS proxy links, fallback text
+- Code interpreter image rendering preserved in `AssistantMessage.tsx`
+- `AgentPreview.tsx` — strips "for SLIIT" from agent name display, Contact/About us match New Chat button style
 - `azure-ai-projects==2.1.0` fixes
 - `SEARCH_CONNECTION_ID` for internal/SLIIT tenant
 
