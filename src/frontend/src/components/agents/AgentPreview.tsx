@@ -49,6 +49,7 @@ interface IAgentPreviewProps {
 interface IAnnotation {
   label: string;
   index: number;
+  url?: string;
 }
 
 /** Strip "for SLIIT" (and any trailing whitespace) from the displayed agent name */
@@ -351,6 +352,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
     try {
       const preprocessedContent = preprocessContent(accumulatedContent, annotations);
       chatItem.content = preprocessedContent;
+      chatItem.annotations = annotations ?? [];
       setMessageList((prev) => [...prev.slice(0, -1), { ...chatItem }]);
 
       if (!isStreaming) {
